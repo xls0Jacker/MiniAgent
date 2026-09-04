@@ -154,3 +154,23 @@ AUTOCODE 指令 + 常驻记忆包成一个 system-reminder，**插在对话最�
    app 持有 Todo 实例（`register_demo_tools` 返回值），切会话时 `set_session(id)` 注入；
    底层按 `storage_dir/<session_id>.json` 落盘。所以两个窗口各自记待办互不可见，切回
    原窗口数据还在——正好演示「session 隔离」。
+
+## 7. 测试绑定
+
+**对应的测试文件：**
+- `tests/test_tui_render.py` —— 主题/面板/模式色、应用启动注册主题、模式标签渲染、
+  permission future 取消不崩溃（Textual 的 Pilot 驱动）
+- `tests/test_scroll_guard.py` —— 滚动保护（上翻时不自动拉到最新、在底部才跟随）
+- `tests/test_permission_dialog.py` —— 权限确认弹窗 UI（WriteFile/EditFile 预览、语法
+  高亮、word diff）——同时覆盖第 4 节 HITL 弹窗的展示层
+
+**怎么验证本模块：**
+- 整文件：`uv run python -m pytest tests/test_tui_render.py tests/test_scroll_guard.py tests/test_permission_dialog.py -q`
+- 单条用例：`uv run python -m pytest tests/test_tui_render.py::test_app_starts_and_registers_theme -q`
+
+**需要知道：**
+- `docs/测试说明.md` 是全部测试的入口与总表，可反查任意模块。
+- 这三个文件全部通过（无存量失败）。
+- TUI 的核心是**真实交互**：打字机流式、工具卡片点击折叠、权限弹窗点按钮、会话切换、
+  记忆召回时机——mock 只能验证到「事件→widget 不崩」，完整闭环需在终端手动跑
+  `uv run autocode`（或 `uv run python -m autocode`）体验。

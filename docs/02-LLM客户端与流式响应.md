@@ -125,3 +125,18 @@ async def consume(self, stream) -> AsyncIterator[AgentEvent]:
 5. **`resolve_context_window` 为何用两/三级降级而非硬查？**
    避免「查不到模型元数据就让程序崩溃」。配置显式值 > 拉取真实值 > 内置映射/默认，
    每降一级都保证 Agent 仍可运行，只是估算精度下降。
+
+## 5. 测试绑定
+
+**对应的测试文件：** `tests/test_serialization.py` —— 三协议（anthropic / openai /
+openai-compat）流式事件归一与消息/工具调用序列化，覆盖本模块 client 的协议差异隔离。
+
+**怎么验证本模块：**
+- 整文件：`uv run python -m pytest tests/test_serialization.py -q`
+- 单条用例：`uv run python -m pytest tests/test_serialization.py::test_openai_input_tool_use_as_function_call -q`
+
+**需要知道：**
+- `docs/测试说明.md` 是全部测试的入口与总表，可反查任意模块。
+- 本文件测试全部通过（无存量失败）。
+- 真实 LLM 的流式输出、prompt cache 计数字段、思考块形态不在 mock 测试范围，需 TUI
+  手动验证。

@@ -134,3 +134,20 @@ assistant: 正文 + tool_use(id=t1, Calculator{expression:"1+1"})
 5. **一次工具调用从触发到下一轮，状态存在哪？**
    存在 `conversation`（消息历史）。模型看到的历史里，assistant 的工具调用和 tool_result
    成对出现，因此下一轮它能「看到自己刚做了什么、结果如何」，再决定下一步。
+
+## 5. 测试绑定
+
+**对应的测试文件：**
+- `tests/test_agent.py` —— 主循环（单步工具调用、结束回合、超轮次护栏、取消、连续未知
+  工具、plan mode 工具被拒、token 用量累计、`partition_tool_calls` 批划分）
+- `tests/test_max_iterations.py` —— max_iterations 护栏：限制工具死循环、单轮即止
+
+**怎么验证本模块：**
+- 整文件：`uv run python -m pytest tests/test_max_iterations.py -q`
+- 单条用例：`uv run python -m pytest tests/test_agent.py::test_single_step_tool_call -q`
+
+**需要知道：**
+- `docs/测试说明.md` 是全部测试的入口与总表，可反查任意模块。
+- `test_agent.py` 中 `test_multi_step_autonomous`（写前保护）与 `test_message_splicing`
+  （消息拼接）为**存量差异，不修**，已在测试说明标注；其余全部通过。
+- 主循环与 TUI 的联动（事件如何渲染成气泡/工具卡片）不在本模块绑定内，见 09 章。

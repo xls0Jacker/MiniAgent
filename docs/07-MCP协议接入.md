@@ -106,3 +106,21 @@ class MCPToolWrapper(Tool):
    `_build_params_model` 用 pydantic 的 `create_model` 动态建类：遍历 `inputSchema` 的
    `properties`，把 JSON type 映射到 Python 类型（`_json_type_to_python`），生成一个
    字段模型。动态创建让「不预知工具长什么样」成为可能。
+
+## 5. 测试绑定
+
+**对应的测试文件：** `tests/test_mcp.py`
+
+**怎么验证本模块：**
+- 单条用例：`uv run python -m pytest tests/test_mcp.py::TestMCPToolWrapper -q`
+  （远端工具 → 本地 Tool 的桥接：`mcp_{server}_{name}` 命名、Schema 复用原 inputSchema）
+- 单条用例：`uv run python -m pytest tests/test_mcp.py::TestMCPManagerPartialFailure -q`
+  （单 server 失败不拖垮其它 server）
+- 配置相关：`tests/test_mcp.py::TestResolveEnvVars`、`TestBuildChildEnv`（env 变量替换/子进程环境）
+
+**需要知道：**
+- `docs/测试说明.md` 是全部测试的入口与总表，可反查任意模块。
+- `TestLoadConfigMCP` 中 4 项（stdio / http / 二选一 / 两者皆缺）为**存量差异，不修**
+  （validator 校验行为与实现不一致），已在测试说明标注——本模块绑定不指向它们。
+- 真实 MCP server 的连接 / 断线自愈 / 远端工具调用不在 mock 测试范围，需接真实 server
+  在 TUI 中验证。

@@ -134,3 +134,30 @@ def estimate_tokens(messages) -> int   # 基于字符的粗估
    `CompactNotification.boundary`（摘要+尾部）作为一条 SessionRecord 持久化；重启后
    `parse_compact_boundary` 还原。这保证压缩不是一次性内存操作，而是对话历史可被
    断点续聊的一部分（配合 09 章 session）。
+
+## 5. 测试绑定
+
+**对应的测试文件：**
+- `tests/test_context.py` —— Layer 1 工具结果预算（`TestApplyToolResultBudget`：
+  单条/聚合超限落盘、未超不动）、auto-compact 决策与阈值（`TestShouldAutoCompact`、
+  `TestComputeCompactThreshold`）、摘要提取、熔断器（`TestCompactCircuitBreaker`）、
+  Layer 2 保尾压缩端到端（`TestAutoCompactKeepRecent`）、token 估算与计费锚点
+  （`TestEstimateTokens` / `TestUsageAnchor`）
+- `tests/test_context_window.py` —— 窗口解析/映射（决定压缩阈值）
+- `tests/test_recovery.py` —— recovery 附件（压缩后重建上下文的来源）
+- `tests/test_replacement_state.py` —— 内容替换状态（Layer 1 的可恢复状态机）
+- `tests/test_memory.py` —— compact boundary 跨会话恢复（`TestCompactBoundaryRoundTrip`）、
+  session JSONL 持久化 / 恢复（`TestSession` / `TestSessionResume`）
+- `tests/test_max_iterations.py` —— 压缩/护栏与主循环的集成
+
+**怎么验证本模块：**
+- 整文件（全绿）：`uv run python -m pytest tests/test_recovery.py tests/test_replacement_state.py -q`
+- 单条用例：`uv run python -m pytest tests/test_context.py::TestCompactCircuitBreaker -q`
+- 压缩核心用例：`uv run python -m pytest "tests/test_context.py::TestApplyToolResultBudget" "tests/test_context.py::TestAutoCompactKeepRecent" "tests/test_context.py::TestUsageAnchor" -q`
+
+**需要知道：**
+- `docs/测试说明.md` 是全部测试的入口与总表，可反查任意模块。
+- `test_context.py` 中 `TestBuildCompactMessages::test_basic_structure` 与 `test_memory.py`
+  收集级旧失败为**存量差异，不修**，已在测试说明标注；本模块绑定只看上述绿色用例。
+- `auto_compact` 的「真实触发时机」依赖 token 估算，mock 只验证到阈值/结构层，真实长
+  对话的压缩边界需在 TUI 手动观察。

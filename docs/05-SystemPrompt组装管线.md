@@ -115,3 +115,22 @@ system = build_system_prompt(hook_prompts=hook_prompts)
    模型对 system prompt 的遵从会随上下文漂移。plan mode 是「不许改代码」的软约束，
    每轮迭代开头重发一次 reminder（含当前是否已有 plan 文件、迭代次数），能把「只出
    方案」的意图牢牢钉在模型近期记忆里。
+
+## 5. 测试绑定
+
+**对应的测试文件：**
+- `tests/test_agent.py` —— prompt 组装相关用例：`test_system_prompt_normal`（普通段拼接）、
+  `test_system_prompt_plan`（plan 段）、`test_plan_mode_sparse_reminder`（稀疏提醒）、
+  `test_environment_context`（环境上下文构造）、`test_plan_mode` / `test_plan_mode_denied_tool_returns_error`
+- `tests/test_context.py` —— 压缩消息的构造（`TestBuildCompactMessages`）
+
+**怎么验证本模块：**
+- 单条用例：`uv run python -m pytest tests/test_agent.py::test_system_prompt_normal tests/test_agent.py::test_environment_context -q`
+- 整文件（含 prompt 相关）：`uv run python -m pytest tests/test_agent.py -q`（存量失败见下）
+
+**需要知道：**
+- `docs/测试说明.md` 是全部测试的入口与总表，可反查任意模块。
+- `test_agent.py` 中 prompt 相关用例全部通过；`test_multi_step_autonomous` 与
+  `test_message_splicing` 为**存量差异，不修**，与本小节无关。
+- 每段 system prompt 的「实际措辞」对模型行为的长期影响不在 mock 测试范围，需真实 LLM
+  在 TUI 中手动体验。

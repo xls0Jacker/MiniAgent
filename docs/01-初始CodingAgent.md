@@ -113,3 +113,23 @@ while True:
 5. **`StreamCollector` 为什么既要 yield 又要累积？**
    UI 需要「逐字流式」体验（边收边渲染），主循环需要「完整 response」判断下一步
    （有没有工具调用）。一个 collector 同时承担转发与聚合两个角色，避免两套解析。
+
+## 5. 测试绑定
+
+**对应的测试文件：**
+- `tests/test_context_window.py` —— 模型 context window 的解析/映射/降级（对应本模块
+  配置模型与启动路径中的窗口决定逻辑）
+- `tests/test_mcp.py` —— 配置里的 MCP servers 加载（`autocode/config.py` 的配置模型）
+- `tests/test_agent.py::test_stop_*` —— 最小对话循环的护栏（取消 / 超时 / 连续未知工具）
+
+**怎么验证本模块：**
+- 整文件（全绿）：`uv run python -m pytest tests/test_context_window.py -q`
+- 单条用例（护栏）：`uv run python -m pytest tests/test_agent.py::test_stop_cancel -q`
+- 单类用例（MCP 配置加载）：`uv run python -m pytest "tests/test_mcp.py::TestResolveEnvVars" "tests/test_mcp.py::TestBuildChildEnv" -q`
+
+**需要知道：**
+- `docs/测试说明.md` 是全部测试的入口与总表，可反查任意模块。
+- `tests/test_mcp.py::TestLoadConfigMCP` 中 4 项为存量差异（validator 行为不一致），已在
+  测试说明标注「不修」；本模块绑定只看 `TestResolveEnvVars` / `TestBuildChildEnv` 等配置
+  相关绿色用例。
+- 真实 LLM 行为（协议选型、`-p` 非交互单发）不在 mock 测试范围，需 TUI 手动验证。
