@@ -1,0 +1,41 @@
+# AutoCode MiniAgent 配置样例
+#
+# 使用方式：
+#   1. 复制本文件到本地配置（该路径已被 .gitignore 忽略，密钥不会进 git）：
+#        mkdir -p .autocode && cp config.example.yaml .autocode/config.local.yaml
+#   2. 把 ${API_KEY} 替换成你的真实 key，按需选择/取消注释某个 provider。
+#
+# 只读 config.yaml 与本地 config.local.yaml 会做深合并：local 覆盖同名键。
+
+# 权限模式：default | acceptEdits | plan | bypassPermissions | dontAsk
+permission_mode: default
+
+# Agent 主循环最大迭代轮次（护栏，防止模型永不结束的循环烧 token）
+max_iterations: 50
+
+# 可选一个或多个 provider；多 provider 会在 TUI 启动菜单里让你选。
+providers:
+  # ── 方式一：Anthropic 官方 ──────────────────────────────
+  - name: anthropic
+    protocol: anthropic            # anthropic Messages API
+    base_url: https://api.anthropic.com
+    model: claude-sonnet-4-5
+    api_key: ${ANTHROPIC_API_KEY}  # 或直接填你的 anthropic key
+
+  # ── 方式二：任意 OpenAI 兼容服务（deepseek / 本地 vLLM 等）──
+  # - name: deepseek
+  #   protocol: openai-compat       # OpenAI Chat Completions 兼容
+  #   base_url: https://api.deepseek.com/v1
+  #   model: deepseek-chat
+  #   api_key: ${DEEPSEEK_API_KEY}
+
+# ─────────────────────────────────────────────────────────────
+# MCP server 接入（可选、纯展示示例）
+# 演示工具（Calculator/Search/Weather/Todo）为内置实现，不依赖 MCP。
+# 取消注释并在本机安装对应 server 后，可通过 ToolSearch 按名加载其工具。
+# ─────────────────────────────────────────────────────────────
+# mcp_servers:
+#   - name: filesystem            # 官方 filesystem 示例
+#     transport: stdio            # stdio | http
+#     command: npx
+#     args: ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/dir"]

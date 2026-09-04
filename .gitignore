@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+dist/
+build/
+
+# 编辑器
+.idea/
+.vscode/
+
+# 运行时数据 / 本地配置（含 API key，禁止进 git）
+.autocode/
+.claude/
+
+# 项目级指令与本地协作产物（不进 git）
+CLAUDE.md
+spec.md
+plan.md
+task.md
+checklist.md
