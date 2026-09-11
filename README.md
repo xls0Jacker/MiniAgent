@@ -1,18 +1,17 @@
 **English** | [简体中文](README.zh-CN.md)
 
-# AutoCode MiniAgent — A Terminal Coding Agent Runtime, Built From Scratch
+# AutoCode MiniAgent — A Terminal Coding Agent Harness
 
 A coding agent that lives in your terminal. You type a sentence; it decides — through a ReAct
 loop — whether to answer directly or call a tool, then goes off to read files, edit code, run
 commands, and do arithmetic until it has an answer.
 
-The core agent runtime is **written from scratch**: no langgraph, openhands, openclaw, or any
-other off-the-shelf agent framework, talking straight to real LLM APIs. `autocode/` is roughly
-**12.5k lines** of first-party implementation, backed by **6.1k lines** of tests.
+The harness drives real LLM APIs directly. `autocode/` is roughly **12.5k lines**, backed by
+**6.1k lines** of tests.
 
 What's inside:
 
-- **A hand-rolled agent loop** — ReAct alternation: think → (optionally) call a tool → read the
+- **An agent loop** — ReAct alternation: think → (optionally) call a tool → read the
   result → think again, until the model answers without reaching for another tool
 - **Three-protocol LLM client** — anthropic / openai / openai-compat behind one unified
   streaming event interface
@@ -28,21 +27,21 @@ What's inside:
 - **Lifecycle hooks** — 15 event points, configurable as notification or interception hooks
 - **MCP integration** — tools from external servers bridge in as local tools, transparently to
   every layer above
-- **A hand-rolled TUI** (Textual) — streaming typewriter output, tool cards, permission dialogs,
+- **Terminal UI** (Textual) — streaming typewriter output, tool cards, permission dialogs,
   session switching
 
 ---
 
 ## Architecture Diagrams
 
-The repository ships **11 interactive architecture diagrams**: one runtime overview plus 10
-module drill-downs.
+The repository ships **11 interactive architecture diagrams**: one system overview plus 10
+module detail diagrams. **Browse them online → <https://xls0Jacker.github.io/MiniAgent/>**
 
 Every diagram is a **self-contained single HTML file** — HTML, CSS, JS, and SVG all inline, zero
-external dependencies, opens straight in a browser. Click any node to open its "semantic
-passport" panel, which carries **real source evidence** as `path:line` references that jump
-straight to the matching line on GitHub. Across all diagrams there are **353 source references**,
-each one verified against commit `d1d0718`.
+external dependencies. Click any node to open its "semantic passport" panel — it lists what that
+node does and where it lives in the source. Across all diagrams there are **353 source
+references**, each one pointing at a real file and line: click it and GitHub opens at that exact
+line.
 
 ![AutoCode MiniAgent runtime architecture overview](https://raw.githubusercontent.com/xls0Jacker/MiniAgent/main/docs/runtime-architecture/preview.png)
 
@@ -52,36 +51,37 @@ each one verified against commit `d1d0718`.
 `HookEngine`, and `Session / Memory` hang below.
 
 > The image above is a **downscaled preview**. README body width is around 880px, so a 2048px
-> source gets scaled down and the node labels stop being readable. For detail, open the
-> interactive version → [`runtime-architecture.html`](docs/runtime-architecture/runtime-architecture.html)
-> (see [how to open it](docs/runtime-architecture/README.md#怎么看)).
+> source gets scaled down and the node labels stop being readable. Open the live version to pan,
+> zoom, and click through the nodes →
+> **[runtime-architecture.html](https://xls0Jacker.github.io/MiniAgent/runtime-architecture/runtime-architecture.html)**
+> (to run one locally instead, see [how to open it](docs/runtime-architecture/README.md#怎么看)).
 >
 > **For English readers:** this is a Chinese-language project. The diagrams, the diagram READMEs
 > they link to, and most of the in-code comments and docstrings are written in Chinese
 > (`zh-CN`). Code identifiers and this README are in English; [`README.zh-CN.md`](README.zh-CN.md)
 > is the Chinese version of this same document.
 
-### The 10 module drill-down diagrams
+### The 10 module diagrams
 
 The overview answers "which modules does a single turn pass through". These answer "**how does
 this module work on its own**":
 
 | # | Diagram | Module | Core mechanism | Size |
 |---|---------|--------|----------------|------|
-| 1 | [agent-loop](docs/module-architecture/agent-loop/agent-loop.html) | Agent loop | 8 stages per turn + 3 guardrails + dual-path tool execution | 15 nodes · 16 edges · 28 refs |
-| 2 | [prompt-assembly](docs/module-architecture/prompt-assembly/prompt-assembly.html) | System prompt assembly | Two paths: `system` param vs. history messages | 12 nodes · 11 edges · 20 refs |
-| 3 | [llm-client](docs/module-architecture/llm-client/llm-client.html) | LLM client | Three-protocol dispatch + event normalization + cache breakpoints | 12 nodes · 11 edges · 28 refs |
-| 4 | [tool-execution](docs/module-architecture/tool-execution/tool-execution.html) | Tool registry & execution | Declarative metadata + concurrent/serial split + output gate | 13 nodes · 13 edges · 32 refs |
-| 5 | [permissions](docs/module-architecture/permissions/permissions.html) | Layered permissions | Layer 0–5 fall-through, first verdict returns | 12 nodes · 11 edges · 30 refs |
-| 6 | [context-compaction](docs/module-architecture/context-compaction/context-compaction.html) | Two-layer compaction | Layer 1 result budget + Layer 2 summary + circuit breaker | 15 nodes · 15 edges · 44 refs |
-| 7 | [hooks](docs/module-architecture/hooks/hooks.html) | Hook engine | Notification vs. interception hooks + condition expressions | 14 nodes · 13 edges · 38 refs |
-| 8 | [memory-session](docs/module-architecture/memory-session/memory-session.html) | Session & memory | JSONL persist/resume + memory extraction and recall | 18 nodes · 17 edges · 54 refs |
-| 9 | [mcp](docs/module-architecture/mcp/mcp.html) | MCP integration | Two transports + tool-wrapper registration + lazy reconnect | 14 nodes · 12 edges · 39 refs |
-| 10 | [tui](docs/module-architecture/tui/tui.html) | TUI interaction | A dispatch ladder over 12 AgentEvent types + three suspension points | 14 nodes · 13 edges · 40 refs |
+| 1 | [agent-loop](https://xls0Jacker.github.io/MiniAgent/module-architecture/agent-loop/agent-loop.html) | Agent loop | 8 stages per turn + 3 guardrails + dual-path tool execution | 15 nodes · 16 edges · 28 refs |
+| 2 | [prompt-assembly](https://xls0Jacker.github.io/MiniAgent/module-architecture/prompt-assembly/prompt-assembly.html) | System prompt assembly | Two paths: `system` param vs. history messages | 12 nodes · 11 edges · 20 refs |
+| 3 | [llm-client](https://xls0Jacker.github.io/MiniAgent/module-architecture/llm-client/llm-client.html) | LLM client | Three-protocol dispatch + event normalization + cache breakpoints | 12 nodes · 11 edges · 28 refs |
+| 4 | [tool-execution](https://xls0Jacker.github.io/MiniAgent/module-architecture/tool-execution/tool-execution.html) | Tool registry & execution | Declarative metadata + concurrent/serial split + output gate | 13 nodes · 13 edges · 32 refs |
+| 5 | [permissions](https://xls0Jacker.github.io/MiniAgent/module-architecture/permissions/permissions.html) | Layered permissions | Layer 0–5 fall-through, first verdict returns | 12 nodes · 11 edges · 30 refs |
+| 6 | [context-compaction](https://xls0Jacker.github.io/MiniAgent/module-architecture/context-compaction/context-compaction.html) | Two-layer compaction | Layer 1 result budget + Layer 2 summary + circuit breaker | 15 nodes · 15 edges · 44 refs |
+| 7 | [hooks](https://xls0Jacker.github.io/MiniAgent/module-architecture/hooks/hooks.html) | Hook engine | Notification vs. interception hooks + condition expressions | 14 nodes · 13 edges · 38 refs |
+| 8 | [memory-session](https://xls0Jacker.github.io/MiniAgent/module-architecture/memory-session/memory-session.html) | Session & memory | JSONL persist/resume + memory extraction and recall | 18 nodes · 17 edges · 54 refs |
+| 9 | [mcp](https://xls0Jacker.github.io/MiniAgent/module-architecture/mcp/mcp.html) | MCP integration | Two transports + tool-wrapper registration + lazy reconnect | 14 nodes · 12 edges · 39 refs |
+| 10 | [tui](https://xls0Jacker.github.io/MiniAgent/module-architecture/tui/tui.html) | TUI interaction | A dispatch ladder over 12 AgentEvent types + three suspension points | 14 nodes · 13 edges · 40 refs |
 
-Three representative drill-downs (click through to the interactive version):
+Three representative module diagrams (click through to the interactive version):
 
-| [![Agent loop](https://raw.githubusercontent.com/xls0Jacker/MiniAgent/main/docs/module-architecture/agent-loop/preview.png)](docs/module-architecture/agent-loop/agent-loop.html) | [![Layered permissions](https://raw.githubusercontent.com/xls0Jacker/MiniAgent/main/docs/module-architecture/permissions/preview.png)](docs/module-architecture/permissions/permissions.html) | [![Two-layer compaction](https://raw.githubusercontent.com/xls0Jacker/MiniAgent/main/docs/module-architecture/context-compaction/preview.png)](docs/module-architecture/context-compaction/context-compaction.html) |
+| [![Agent loop](https://raw.githubusercontent.com/xls0Jacker/MiniAgent/main/docs/module-architecture/agent-loop/preview.png)](https://xls0Jacker.github.io/MiniAgent/module-architecture/agent-loop/agent-loop.html) | [![Layered permissions](https://raw.githubusercontent.com/xls0Jacker/MiniAgent/main/docs/module-architecture/permissions/preview.png)](https://xls0Jacker.github.io/MiniAgent/module-architecture/permissions/permissions.html) | [![Two-layer compaction](https://raw.githubusercontent.com/xls0Jacker/MiniAgent/main/docs/module-architecture/context-compaction/preview.png)](https://xls0Jacker.github.io/MiniAgent/module-architecture/context-compaction/context-compaction.html) |
 |---|----|----|
 | **Agent loop** — 8 stages per turn | **Permissions** — Layer 0–5 fall-through | **Compaction** — budget + summary |
 
@@ -102,7 +102,7 @@ uv sync                 # or: pip install -e .
 # 2. Configure the LLM API
 #    Copy the example config and fill in your api_key / base_url / model
 cp config.example.yaml .autocode/config.local.yaml
-#    Edit .autocode/config.local.yaml (already gitignored — your key won't be committed)
+#    Edit .autocode/config.local.yaml (kept out of the repository — your key stays local)
 
 # 3. Launch the TUI
 uv run autocode
@@ -124,7 +124,7 @@ providers:
     protocol: anthropic
     base_url: https://api.anthropic.com
     model: claude-sonnet-4-5
-    api_key: ${YOUR_ANTHROPIC_KEY}  # ← your key (this file is not committed)
+    api_key: ${YOUR_ANTHROPIC_KEY}  # ← your key (this file is never uploaded)
 
   # - name: my_openai_compat   # Option 2: any OpenAI-compatible endpoint (deepseek / local, etc.)
   #   protocol: openai-compat
@@ -161,9 +161,9 @@ past sessions.
 
 Four layers: **TUI** (the Textual app) → **Agent** (loop + event stream) → **capabilities**
 (LLM client, tool registry, permissions, compaction, memory, hooks) → **protocols** (three LLM
-APIs plus MCP). Below, each module links to its drill-down diagram.
+APIs plus MCP). Below, each module links to its own diagram.
 
-### The agent loop ([diagram](docs/module-architecture/agent-loop/agent-loop.html))
+### The agent loop ([diagram](https://xls0Jacker.github.io/MiniAgent/module-architecture/agent-loop/agent-loop.html))
 
 One input drives the loop to a final answer: **take input → decide to answer or call tools →
 (if tools) → write results back → continue or return**. The termination condition is the model
@@ -177,7 +177,7 @@ stream the request. Tool execution splits two ways: concurrency-safe tools batch
 **parallel** run; everything else goes through a **serial** path (which includes hook
 interception and the permission check).
 
-### Tool system ([diagram](docs/module-architecture/tool-execution/tool-execution.html))
+### Tool system ([diagram](https://xls0Jacker.github.io/MiniAgent/module-architecture/tool-execution/tool-execution.html))
 
 Each tool is `name` + `description` + a pydantic `Params` model. That one pydantic model does
 triple duty: `get_schema()` feeds the model's decision, `execute()` receives strongly-typed
@@ -188,7 +188,7 @@ from a read/write category. The concurrent batch takes a direct path; only the s
 passes through hooks and the permission gate. Oversized results get truncated or persisted by
 the context layer.
 
-### System prompt assembly ([diagram](docs/module-architecture/prompt-assembly/prompt-assembly.html))
+### System prompt assembly ([diagram](https://xls0Jacker.github.io/MiniAgent/module-architecture/prompt-assembly/prompt-assembly.html))
 
 The prompt the model receives **does not come from one place**: the `system` parameter carries
 only 8 fixed sections (identity, conduct, tool usage, tone, environment…), while everything that
@@ -196,7 +196,7 @@ only 8 fixed sections (identity, conduct, tool usage, tone, environment…), whi
 injected into the **history messages**. Compaction wipes those injections, which is why the code
 re-injects them after every compaction.
 
-### Permissions ([diagram](docs/module-architecture/permissions/permissions.html))
+### Permissions ([diagram](https://xls0Jacker.github.io/MiniAgent/module-architecture/permissions/permissions.html))
 
 The single gate every tool call passes before the loop executes it: each `ToolCall` goes through
 `check()` and comes back allow / deny / ask. The decision is a **Layer 0–5 fall-through** — any
@@ -215,7 +215,7 @@ layer that commits a verdict returns immediately, so **the layer order *is* the 
 The rule engine sits *before* the mode matrix: a hit in `permissions.yaml` returns before the
 fallback matrix is ever consulted.
 
-### Context compaction, two layers ([diagram](docs/module-architecture/context-compaction/context-compaction.html))
+### Context compaction, two layers ([diagram](https://xls0Jacker.github.io/MiniAgent/module-architecture/context-compaction/context-compaction.html))
 
 - **Layer 1 (every turn, no LLM call)**: before each request, oversized tool results are
   truncated, persisted, or snipped — three passes: a single result over the threshold gets
@@ -229,7 +229,7 @@ fallback matrix is ever consulted.
 Both layers share one persistence function and one session directory — a single mechanism with
 two entry points.
 
-### Memory and sessions ([diagram](docs/module-architecture/memory-session/memory-session.html))
+### Memory and sessions ([diagram](https://xls0Jacker.github.io/MiniAgent/module-architecture/memory-session/memory-session.html))
 
 Two channels, one immediate and one resident:
 
@@ -256,7 +256,7 @@ Persistence works the other way around from reading: one message is **split into
 records** on the way out, and reassembled on resume. Because compaction boundaries inline their
 summaries, the original pre-compaction prefix never has to be replayed.
 
-### LLM client ([diagram](docs/module-architecture/llm-client/llm-client.html))
+### LLM client ([diagram](https://xls0Jacker.github.io/MiniAgent/module-architecture/llm-client/llm-client.html))
 
 The three protocols have completely different API shapes (Messages / Responses / Chat
 Completions), but all of them are translated into the **same 7 `StreamEvent` types** — the
@@ -264,7 +264,7 @@ differences are entirely contained inside `client.py`, and everything above only
 event vocabulary. Cache breakpoints are placed in three spots: the system prompt, the tail of
 the tool list, and the last user message.
 
-### Hooks and MCP ([hooks diagram](docs/module-architecture/hooks/hooks.html) · [MCP diagram](docs/module-architecture/mcp/mcp.html))
+### Hooks and MCP ([hooks diagram](https://xls0Jacker.github.io/MiniAgent/module-architecture/hooks/hooks.html) · [MCP diagram](https://xls0Jacker.github.io/MiniAgent/module-architecture/mcp/mcp.html))
 
 **Hooks** come in two kinds: notification hooks (they run and don't interfere with the main
 flow) and interception hooks (only `pre_tool_use`, which can reject a tool call). Conditions are
@@ -334,10 +334,10 @@ Plus the [test documentation](docs/testing.md). All of these are in Chinese.
 
 ### Architecture diagrams (11)
 
-- [Runtime overview](docs/runtime-architecture/runtime-architecture.html) — 12 nodes, which
+- [System overview](https://xls0Jacker.github.io/MiniAgent/runtime-architecture/runtime-architecture.html) — 12 nodes, which
   modules one turn passes through ([how to view](docs/runtime-architecture/README.md#怎么看))
-- [10 module drill-downs](docs/module-architecture/README.md) — how each module works internally;
-  see [the table above](#the-10-module-drill-down-diagrams)
+- [10 module diagrams](docs/module-architecture/README.md) — how each module works internally;
+  see [the table above](#the-10-module-diagrams)
 
 ---
 
@@ -345,7 +345,7 @@ Plus the [test documentation](docs/testing.md). All of these are in Chinese.
 
 ```
 MiniAgent/
-├── autocode/                 # Main package (first-party runtime + TUI)
+├── autocode/                 # Main package (harness + TUI)
 │   ├── __main__.py           # CLI entry point (TUI / -p non-interactive)
 │   ├── agent.py              # Agent loop + event stream
 │   ├── client.py             # Three-protocol LLM client
@@ -363,5 +363,5 @@ MiniAgent/
 ├── docs/                     # Module write-ups / architecture diagrams / test docs
 ├── config.example.yaml       # Example config
 ├── pyproject.toml
-└── .autocode/config.local.yaml   # Local config (gitignored — do not commit)
+└── .autocode/config.local.yaml   # Local config (kept out of the repository)
 ```

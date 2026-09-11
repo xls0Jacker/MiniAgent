@@ -1,6 +1,6 @@
 # 模块机制图
 
-一组**下钻图**：现有 [`docs/runtime-architecture/runtime-architecture.html`](../runtime-architecture/runtime-architecture.html) 是总览图（一轮对话经过哪些模块），这里每个模块各一张，回答**这个模块自己怎么工作**。
+一组**模块机制图**：现有 [`docs/runtime-architecture/runtime-architecture.html`](../runtime-architecture/runtime-architecture.html) 是总览图（一轮对话经过哪些模块），这里每个模块各一张，回答**这个模块自己怎么工作**。
 
 每张图都带**真实源码行号**——点任意节点打开面板，能看到 `文件:行号` 并可跳到 GitHub 对应行。
 
@@ -8,7 +8,13 @@
 
 ## 怎么读
 
-打开方式与总览图完全相同（自包含单文件，见[总览图 README](../runtime-architecture/README.md#怎么看)）。SSH 场景下最省事的一条：
+**已经在网上发布了**，点开就能看，无需本地操作：
+
+**<https://xls0Jacker.github.io/MiniAgent/module-architecture/agent-loop/agent-loop.html>**
+
+换掉中间那段模块名就是其它九张图（`prompt-assembly` / `llm-client` / …）。
+
+下面是**本地查看**的办法（离线、或想拿一份副本）。打开方式与总览图完全相同（自包含单文件，见[总览图 README](../runtime-architecture/README.md#怎么看)）。SSH 场景下最省事的一条：
 
 ```bash
 # 终端 1（远程）
@@ -158,16 +164,16 @@ python3 docs/module-architecture/label_collisions.py docs/module-architecture/*/
 ```
 runtime-architecture.html        ← 总览：12 节点，一轮对话经过哪些模块
         │
-        ├── agent-loop.html          ← 下钻：Agent 主循环节点内部怎么跑
-        ├── prompt-assembly.html     ← 下钻：System Prompt 组装节点内部怎么拼
-        ├── llm-client.html          ← 下钻：LLM 客户端怎么归一三种协议
-        ├── tool-execution.html      ← 下钻：工具怎么注册、分批、执行、回填
-        ├── permissions.html         ← 下钻：一次权限判定怎么逐层下落
-        ├── context-compaction.html  ← 下钻：两层压缩各自做什么
-        ├── hooks.html               ← 下钻：钩子怎么匹配、怎么拦截
-        ├── memory-session.html      ← 下钻：会话怎么落盘、记忆怎么抽与召
-        ├── mcp.html                 ← 下钻：外部工具怎么接进来
-        └── tui.html                 ← 下钻：事件怎么变成屏幕上的东西
+        ├── agent-loop.html          ← 模块图：Agent 主循环节点内部怎么跑
+        ├── prompt-assembly.html     ← 模块图：System Prompt 组装节点内部怎么拼
+        ├── llm-client.html          ← 模块图：LLM 客户端怎么归一三种协议
+        ├── tool-execution.html      ← 模块图：工具怎么注册、分批、执行、回填
+        ├── permissions.html         ← 模块图：一次权限判定怎么逐层下落
+        ├── context-compaction.html  ← 模块图：两层压缩各自做什么
+        ├── hooks.html               ← 模块图：钩子怎么匹配、怎么拦截
+        ├── memory-session.html      ← 模块图：会话怎么落盘、记忆怎么抽取与召回
+        ├── mcp.html                 ← 模块图：外部工具怎么接进来
+        └── tui.html                 ← 模块图：事件怎么变成屏幕上的东西
 ```
 
-总览图回答「有哪些模块」，本目录回答「每个模块怎么工作」。面试时可先讲总览图建立全局，再按需下钻。
+总览图回答「有哪些模块」，本目录回答「每个模块怎么工作」。面试时可先讲总览图建立全局，再按需展开细节。

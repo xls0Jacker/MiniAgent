@@ -3,7 +3,7 @@
 > 本文拆解 `autocode/prompts.py` 的
 > `PromptBuilder`：如何把「身份、做事准则、工具用法、语气、环境、记忆、Hook 通知」
 > 这些松散的片段按优先级拼成一个最终 system prompt。
-> 全文基于本项目 `autocode/` 包（模块解读，供自研参考）。
+> 全文基于本项目 `autocode/` 包（模块解读）。
 
 ## 1. 模块职责
 
@@ -109,7 +109,7 @@ system = build_system_prompt(hook_prompts=hook_prompts)
 
 4. **这些英文行为准则段的来源？**
    对应 Claude Code 的公开系统提示工程实践（识别注入、先读再改、忠于验证结果、
-   破坏性操作先确认等）。本项目学习用改写，作为自研 Agent 的「行为下限」。
+   破坏性操作先确认等）。本项目参考整理，作为 Agent 的「行为下限」。
 
 5. **plan mode 的提醒为什么必须每轮重发？**
    模型对 system prompt 的遵从会随上下文漂移。plan mode 是「不许改代码」的软约束，

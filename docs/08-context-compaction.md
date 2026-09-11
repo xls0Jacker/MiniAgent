@@ -4,7 +4,7 @@
 > 与 `conversation.py` 的 token 估算，讲清「上下文太长时系统怎么自救」：
 > 双 Layer 压缩（Layer 1 tool result 预算、Layer 2 auto-compact 摘要）、预算阈值、
 > 熔断器等。
-> 全文基于本项目 `autocode/` 包（模块解读，供自研参考）。
+> 全文基于本项目 `autocode/` 包（模块解读）。
 
 ## 1. 模块职责
 

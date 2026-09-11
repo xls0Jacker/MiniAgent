@@ -8,6 +8,12 @@
 
 ## 怎么看
 
+**已经在网上发布了**，直接用浏览器打开即可，无需任何本地操作：
+
+**<https://xls0Jacker.github.io/MiniAgent/runtime-architecture/runtime-architecture.html>**
+
+下面三种是**本地查看**的办法（离线、或想拿一份副本）。
+
 `runtime-architecture.html` 是**自包含单文件**——HTML、CSS、JavaScript、SVG 全在里面，没有任何外部资源引用（已验证：0 条外部链接）。不需要装依赖、不需要构建，一个文件就是全部。用现代浏览器打开即可（Chrome / Edge / Firefox / Safari，需支持 `ResizeObserver` 与 `color-mix`）。
 
 所以问题只剩一个：**怎么让浏览器拿到这个文件**。下面按情形选一条，命令都以 Linux 终端为准。

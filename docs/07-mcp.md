@@ -3,7 +3,7 @@
 > 本文拆解 `autocode/mcp/` 包：
 > 如何把任意 MCP server 暴露的工具，无缝桥接成本项目 ToolRegistry 里一个普通 Tool，
 > 让 Agent 主循环、权限系统、工具搜索统统不用改。
-> 全文基于本项目 `autocode/` 包（模块解读，供自研参考）。
+> 全文基于本项目 `autocode/` 包（模块解读）。
 
 ## 1. 模块职责
 
@@ -97,8 +97,8 @@ class MCPToolWrapper(Tool):
    defer 让它们按需加载（ToolSearch），与内置工具数量多时的策略一致（见 03 章）。
 
 4. **为什么 Weather 演示不走 MCP？**
-   这里要演示的核心是「自研 Runtime 的工具注册 → LLM 自主决策调用」。weather 走 MCP 需要
-   起一个外部 server（网络/服务依赖），既偏离「最小可用、离线可测」的演示诉求，也让
+   这里要演示的核心是「Harness 的工具注册 → LLM 自主决策调用」。weather 走 MCP 需要
+   起一个外部 server（网络/服务依赖），既偏离「离线可测」的演示诉求，也让
    他人难以在无网环境复现。故用确定性 mock 的内置 Weather 工具讲注册机制，把 MCP
    作为扩展能力另行补充即可。
 

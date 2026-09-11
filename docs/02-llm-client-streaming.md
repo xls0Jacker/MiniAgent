@@ -2,7 +2,7 @@
 
 > 本文拆解 `autocode/client.py` + `autocode/agent.py` 中
 > 的 `StreamCollector`，讲清「一个请求如何变成 UI 上一行行字」的完整链路。
-> 全文基于本项目 `autocode/` 包（模块解读，供自研参考）。
+> 全文基于本项目 `autocode/` 包（模块解读）。
 
 ## 1. 模块职责
 

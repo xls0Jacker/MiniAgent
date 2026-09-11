@@ -2,7 +2,7 @@
 
 > 本文拆解 `autocode/tools/`：`Tool` 抽象基类、
 > `ToolRegistry` 注册表、参数 Schema 自动生成，以及主循环里工具调用的执行与结果回填。
-> 全文基于本项目 `autocode/` 包（模块解读，供自研参考）。
+> 全文基于本项目 `autocode/` 包（模块解读）。
 
 ## 1. 模块职责
 

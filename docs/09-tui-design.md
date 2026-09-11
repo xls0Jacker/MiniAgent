@@ -1,9 +1,9 @@
-# 模块解读 09：TUI 交互设计（自研 Textual 界面）
+# 模块解读 09：TUI 交互设计（Textual 界面）
 
 > 本文拆解 `autocode/app.py`
 > （Textual 应用）+ 各 dialog 模块，讲清 TUI 的布局、Agent 事件如何驱动界面刷新、
 > 权限弹窗 / 会话管理 / 记忆召回的交互闭环。
-> 全文基于本项目 `autocode/` 包（模块解读，供自研参考）。
+> 全文基于本项目 `autocode/` 包（模块解读）。
 
 ## 1. 模块职责
 

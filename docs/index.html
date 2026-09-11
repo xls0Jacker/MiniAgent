@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AutoCode MiniAgent — 架构图与模块文档</title>
+<style>
+  :root {
+    --bg: #fbfbfd;
+    --card: #ffffff;
+    --ink: #1c1c1e;
+    --muted: #6b7280;
+    --line: #e5e7eb;
+    --accent: #2f6f4f;
+    --accent-soft: #eef6f1;
+    --featured: #f0f6ff;
+    --featured-line: #cfe0f5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a; --card: #1c1f24; --ink: #e8eaed; --muted: #9aa0a6;
+      --line: #2c3037; --accent: #7fc2a0; --accent-soft: #1b2a22;
+      --featured: #16202e; --featured-line: #2a3d55;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC",
+          "PingFang SC", "Microsoft YaHei", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 56px 24px 80px; }
+  header { margin-bottom: 48px; }
+  h1 { font-size: 30px; margin: 0 0 10px; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); margin: 0; }
+  .sub a { color: var(--accent); text-decoration: none; }
+  .sub a:hover { text-decoration: underline; }
+  h2 {
+    font-size: 13px; text-transform: uppercase; letter-spacing: 0.09em;
+    color: var(--muted); font-weight: 600;
+    margin: 44px 0 16px; padding-bottom: 10px; border-bottom: 1px solid var(--line);
+  }
+  h2 .n { color: var(--accent); font-weight: 700; }
+  .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+  a.card {
+    display: block; text-decoration: none; color: inherit;
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 15px 17px; transition: border-color .15s, transform .15s, box-shadow .15s;
+  }
+  a.card:hover {
+    border-color: var(--accent); transform: translateY(-2px);
+    box-shadow: 0 4px 14px rgba(0,0,0,.07);
+  }
+  .card .t { font-weight: 600; margin-bottom: 4px; display: flex; align-items: baseline; gap: 8px; }
+  .card .t code {
+    font-size: 11.5px; color: var(--muted); font-weight: 400;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .card .d { font-size: 13.5px; color: var(--muted); line-height: 1.5; }
+  a.featured {
+    display: block; text-decoration: none; color: inherit;
+    background: var(--featured); border: 1px solid var(--featured-line);
+    border-radius: 12px; padding: 22px 24px; margin-bottom: 12px;
+    transition: transform .15s, box-shadow .15s;
+  }
+  a.featured:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.09); }
+  a.featured .t { font-size: 19px; font-weight: 650; margin-bottom: 6px; }
+  a.featured .d { color: var(--muted); font-size: 14px; max-width: 62ch; }
+  .grid.three { grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); }
+  .grid.two { grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); }
+  footer {
+    margin-top: 56px; padding-top: 22px; border-top: 1px solid var(--line);
+    color: var(--muted); font-size: 13px;
+  }
+  footer code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+  .hint { font-size: 13px; color: var(--muted); margin: 0 0 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>AutoCode MiniAgent</h1>
+  <p class="sub">
+    架构图与模块文档 · <a href="https://github.com/xls0Jacker/MiniAgent">GitHub 仓库</a>
+    · <a href="https://github.com/xls0Jacker/MiniAgent/blob/main/README.zh-CN.md">项目说明</a>
+  </p>
+</header>
+
+<h2>架构图 <span class="n">11</span> 张</h2>
+<p class="hint">
+  每张图都是自包含单文件，点任意节点会打开「语义护照」面板，挂 <code>文件:行号</code> 的真实源码证据。
+</p>
+
+<a class="featured" href="runtime-architecture/runtime-architecture.html">
+  <div class="t">系统总览图</div>
+  <div class="d">
+    12 节点、13 关系。一轮对话经过哪些模块：主链路
+    用户 → AutoCodeApp → Agent 主循环 → LLMClient → LLM API；上侧挂 System Prompt 组装、
+    双层压缩，下侧挂权限分层、ToolRegistry → MCP Servers、HookEngine、Session / Memory。
+  </div>
+</a>
+
+<div class="grid">
+  <a class="card" href="module-architecture/agent-loop/agent-loop.html">
+    <div class="t">Agent 主循环 <code>agent.py</code></div>
+    <div class="d">每轮 8 阶段 + 3 道护栏 + 工具双路执行</div>
+  </a>
+  <a class="card" href="module-architecture/prompt-assembly/prompt-assembly.html">
+    <div class="t">System Prompt 组装 <code>prompts.py</code></div>
+    <div class="d">双路径合成：system 参数 vs 历史消息</div>
+  </a>
+  <a class="card" href="module-architecture/llm-client/llm-client.html">
+    <div class="t">LLM 客户端 <code>client.py</code></div>
+    <div class="d">三协议分发 + 事件归一 + 缓存断点</div>
+  </a>
+  <a class="card" href="module-architecture/tool-execution/tool-execution.html">
+    <div class="t">工具注册与执行 <code>tools/</code></div>
+    <div class="d">声明式元数据 + 并发/串行双路 + 输出闸</div>
+  </a>
+  <a class="card" href="module-architecture/permissions/permissions.html">
+    <div class="t">权限分层 <code>permissions/</code></div>
+    <div class="d">Layer 0–5 逐层下落，命中即返回</div>
+  </a>
+  <a class="card" href="module-architecture/context-compaction/context-compaction.html">
+    <div class="t">双层压缩 <code>context/manager.py</code></div>
+    <div class="d">Layer 1 结果预算 + Layer 2 摘要 + 熔断</div>
+  </a>
+  <a class="card" href="module-architecture/hooks/hooks.html">
+    <div class="t">Hook 引擎 <code>hooks/</code></div>
+    <div class="d">通知型 vs 拦截型 + 条件表达式</div>
+  </a>
+  <a class="card" href="module-architecture/memory-session/memory-session.html">
+    <div class="t">Session 与记忆 <code>memory/</code></div>
+    <div class="d">JSONL 落盘/恢复 + 记忆抽取与召回</div>
+  </a>
+  <a class="card" href="module-architecture/mcp/mcp.html">
+    <div class="t">MCP 接入 <code>mcp/</code></div>
+    <div class="d">两条传输 + 工具包装注册 + 懒重连</div>
+  </a>
+  <a class="card" href="module-architecture/tui/tui.html">
+    <div class="t">TUI 交互 <code>app.py</code></div>
+    <div class="d">12 种 AgentEvent 的分发梯子 + 三处挂起</div>
+  </a>
+</div>
+
+<h2>模块解读 <span class="n">9</span> 篇</h2>
+<div class="grid three">
+  <a class="card" href="01-initial-coding-agent.html">
+    <div class="t">01 · 初始 Coding Agent</div>
+    <div class="d">入口 / 配置 / 最小闭环</div>
+  </a>
+  <a class="card" href="02-llm-client-streaming.html">
+    <div class="t">02 · LLM 客户端与流式响应</div>
+    <div class="d">client.py / StreamCollector</div>
+  </a>
+  <a class="card" href="03-tool-registry.html">
+    <div class="t">03 · 工具注册与执行框架</div>
+    <div class="d">tools/ · registry</div>
+  </a>
+  <a class="card" href="04-agent-loop-events.html">
+    <div class="t">04 · Agent 主循环与事件流</div>
+    <div class="d">agent.py ReAct loop</div>
+  </a>
+  <a class="card" href="05-system-prompt.html">
+    <div class="t">05 · System Prompt 组装管线</div>
+    <div class="d">prompts.py</div>
+  </a>
+  <a class="card" href="06-permissions.html">
+    <div class="t">06 · 权限系统</div>
+    <div class="d">permissions/ 分层防御</div>
+  </a>
+  <a class="card" href="07-mcp.html">
+    <div class="t">07 · MCP 协议接入</div>
+    <div class="d">mcp/ 开放式扩展</div>
+  </a>
+  <a class="card" href="08-context-compaction.html">
+    <div class="t">08 · 上下文压缩与 Token 管理</div>
+    <div class="d">context/ 双层压缩</div>
+  </a>
+  <a class="card" href="09-tui-design.html">
+    <div class="t">09 · TUI 交互设计</div>
+    <div class="d">app.py Textual 界面</div>
+  </a>
+</div>
+
+<h2>测试</h2>
+<div class="grid two">
+  <a class="card" href="testing.html">
+    <div class="t">测试说明</div>
+    <div class="d">运行方式 · 测试文件 → 功能点映射 · 模块 ↔ 测试双向索引 · 已知边界</div>
+  </a>
+  <a class="card" href="module-architecture/">
+    <div class="t">模块图 README</div>
+    <div class="d">图列表 · 目录结构 · 重新生成与校验命令 · 行号锚定说明</div>
+  </a>
+</div>
+
+<footer>
+  图由 <a href="https://github.com/tt-a1i/archify">archify</a> 从 <code>.json</code> 规格生成，
+  逐条校验源码引用后交付。所有行号锚定在固定修订版本上，不随工作区改动漂移。
+</footer>
+
+</div>
+</body>
+</html>
