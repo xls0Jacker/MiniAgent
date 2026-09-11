@@ -80,26 +80,31 @@ def _mark_last_tool_for_cache(tools: list[dict[str, Any]]) -> list[dict[str, Any
 
 
 class LLMError(Exception):
+    """所有 LLM 客户端错误的基类（协议无关，供上层统一捕获）。"""
     pass
 
 
 class AuthenticationError(LLMError):
+    """API key 缺失或无效。"""
     pass
 
 
 class RateLimitError(LLMError):
-
+    """被限流；retry_after 若已知则为建议等待秒数。"""
 
     def __init__(self, message: str, retry_after: float | None = None):
         super().__init__(message)
-        self.retry_after = retry_after
+        self.retry_after = retry_after   # None = 未知，上层按默认策略退避
 
 
 class NetworkError(LLMError):
+    """连接/网络层故障（含 TLS、DNS、超时）。"""
     pass
 
 
 class LLMClient(ABC):
+    """所有厂商客户端的统一抽象：Agent 主循环只认这一个接口。"""
+
     @abstractmethod
     async def stream(
         self,
@@ -107,13 +112,28 @@ class LLMClient(ABC):
         system: str = "",
         tools: list[dict[str, Any]] | None = None,
     ) -> AsyncIterator[StreamEvent]:
+        """把整段对话流式请求出去，逐条产出协议无关的 StreamEvent。
+
+        输入: conversation——对话历史；system——系统提示；tools——工具 schema。
+        作用: 屏蔽三厂商差异（请求格式 / 流事件命名 / usage 归因），转成统一的
+              TextDelta / ToolCall* / StreamEnd 事件流。
+        输出: 异步事件流；协议错误映射为 LLMError 子类抛出。
+        """
         yield TextDelta("")
 
     def set_max_output_tokens(self, tokens: int) -> None:
+        """调整最大输出 token 预算（如主循环输出截断后的升级/降级）。"""
         pass
 
 
 def _supports_adaptive_thinking(model: str) -> bool:
+    """判断模型是否支持「自适应 thinking」（预算=0 由模型自定）。
+
+    输入: model——完整模型名。
+    作用: 早期 Opus/Sonnet 版本需要显式 budget_tokens；新一代（版本号 ≥ 6）
+          支持传 0 表示自适应，不传就退化为旧式预算。
+    输出: bool——是否新一代支持自适应。
+    """
     for family in ("claude-opus-4-", "claude-sonnet-4-"):
         if model.startswith(family):
             rest = model[len(family):]
@@ -124,11 +144,18 @@ def _supports_adaptive_thinking(model: str) -> bool:
 
 class AnthropicClient(LLMClient):
     def __init__(self, config: ProviderConfig) -> None:
+        """构造 Anthropic 客户端；key 缺失/无效直接抛 AuthenticationError。
+
+        输入: config——该 provider 的配置。
+        作用: 预取模型名 / thinking 开关 / 输出预算，用 AsyncAnthropic 建连接。
+        输出: 无（副作用：初始化 self._client 连接句柄）。
+        """
         self.model = config.model
         self.thinking = config.thinking
         self.max_output_tokens = config.get_max_output_tokens()
         api_key = config.resolve_api_key()
         if not api_key:
+            # 启动即失败好过发请求后再被 401：把认证错误前移到构造期
             raise AuthenticationError(
                 "Anthropic API key not found. "
                 "Set it in .autocode/config.yaml or via ANTHROPIC_API_KEY env var."
@@ -136,6 +163,7 @@ class AnthropicClient(LLMClient):
         self._client = AsyncAnthropic(api_key=api_key, base_url=config.base_url)
 
     def set_max_output_tokens(self, tokens: int) -> None:
+        """供主循环在输出截断时调高预算。"""
         self.max_output_tokens = tokens
 
     async def fetch_model_context_window(self) -> int | None:
@@ -164,8 +192,16 @@ class AnthropicClient(LLMClient):
         system: str = "",
         tools: list[dict[str, Any]] | None = None,
     ) -> AsyncIterator[StreamEvent]:
+        """Anthropic Messages API 实现：把流事件翻译成统一 StreamEvent。
+
+        输入: conversation / system / tools——同上接口约定。
+        作用: 打上 prompt-cache 断点 → 按需开启 thinking → 消费 content_block_*
+              流事件，thinking 块累积、tool 参数块结束时 JSON 解析成 dict。
+        输出: 异步事件流；出错时按类型映射成 LLMError 子类。
+        """
         import anthropic as _anthropic
 
+        # 先经序列化层把内部历史转成 Anthropic messages 格式
         messages = build_anthropic_messages(conversation.get_messages())
 
         # 在最长稳定前缀上标记 prompt cache 断点：system、tools
@@ -179,6 +215,7 @@ class AnthropicClient(LLMClient):
             "max_tokens": self.max_output_tokens,
             "messages": messages,
         }
+        # system 也要锚一个 cache 断点——它是前缀中最稳定的部分
         if system:
             kwargs["system"] = [{
                 "type": "text",
@@ -197,6 +234,7 @@ class AnthropicClient(LLMClient):
                     "budget_tokens": max(self.max_output_tokens - 1, 1024),
                 }
 
+        # 跨 content block 的流式累积状态：tool 参数/thinking 都靠这些变量归并
         current_tool_name = ""
         current_tool_id = ""
         json_accum = ""
@@ -210,10 +248,12 @@ class AnthropicClient(LLMClient):
                     if event.type == "content_block_start":
                         block = event.content_block
                         if block.type == "thinking":
+                            # 进入 thinking 块：先复位累积器，供后续 delta 填充
                             in_thinking = True
                             thinking_accum = ""
                             thinking_signature = ""
                         elif block.type == "tool_use":
+                            # 新工具调用开始：记下 name/id，参数靠后续 delta 累积
                             current_tool_name = block.name
                             current_tool_id = block.id
                             json_accum = ""
@@ -226,36 +266,38 @@ class AnthropicClient(LLMClient):
                         if delta.type == "text_delta":
                             yield TextDelta(text=delta.text)
                         elif delta.type == "thinking_delta":
-                            thinking_accum += delta.thinking
+                            thinking_accum += delta.thinking   # 累积，块结束才整体上报
                             yield ThinkingDelta(text=delta.thinking)
                         elif delta.type == "signature_delta":
-                            thinking_signature = delta.signature
+                            thinking_signature = delta.signature   # 签名只取最后一块
                         elif delta.type == "input_json_delta":
                             json_accum += delta.partial_json
                             yield ToolCallDelta(text=delta.partial_json)
                     elif event.type == "content_block_stop":
-                        if in_thinking:
+                        if in_thinking:   # thinking 块结束 → 收束上报签名
                             yield ThinkingComplete(
                                 thinking=thinking_accum,
                                 signature=thinking_signature,
                             )
-                            in_thinking = False
-                        if current_tool_name:
+                            in_thinking = False   # 复位，防下一个块误判仍在 thinking
+                        if current_tool_name:   # tool 块结束 → 整段参数 JSON 解析
                             try:
                                 args = json.loads(json_accum) if json_accum else {}
                             except json.JSONDecodeError:
-                                args = {}
+                                args = {}   # 流偶尔截断成非法 JSON，兜底给空参数
                             yield ToolCallComplete(
                                 tool_id=current_tool_id,
                                 tool_name=current_tool_name,
                                 arguments=args,
                             )
+                            # 一次 tool 调用处理完，清空跨块状态
                             current_tool_name = ""
                             current_tool_id = ""
                             json_accum = ""
                     elif event.type == "message_stop":
                         pass
 
+                # 流结束：取终态消息拿真实 usage（含 cache 命中计数）
                 final = await stream.get_final_message()
                 usage = final.usage
                 yield StreamEnd(
@@ -284,6 +326,12 @@ class AnthropicClient(LLMClient):
 
 class OpenAIClient(LLMClient):
     def __init__(self, config: ProviderConfig) -> None:
+        """构造面向 OpenAI Responses API（/responses）的客户端。
+
+        输入: config——该 provider 的配置。
+        作用: 预取模型名 / 输出预算，建 AsyncOpenAI 连接；key 缺失即抛认证错。
+        输出: 无（副作用：初始化 self._client）。
+        """
         self.model = config.model
         self.max_output_tokens = config.get_max_output_tokens()
         api_key = config.resolve_api_key()
@@ -295,6 +343,7 @@ class OpenAIClient(LLMClient):
         self._client = AsyncOpenAI(api_key=api_key, base_url=config.base_url)
 
     def set_max_output_tokens(self, tokens: int) -> None:
+        """供主循环在输出截断时调高预算。"""
         self.max_output_tokens = tokens
 
     async def stream(
@@ -303,8 +352,16 @@ class OpenAIClient(LLMClient):
         system: str = "",
         tools: list[dict[str, Any]] | None = None,
     ) -> AsyncIterator[StreamEvent]:
+        """OpenAI Responses API 实现：把官方流事件翻译成统一 StreamEvent。
+
+        输入: conversation / system / tools——同上接口约定。
+        作用: 走 /responses 端点的 function_call 增量事件，按 name 首次出现触发
+              ToolCallStart、累积参数、结束时解析成 ToolCallComplete。
+        输出: 异步事件流；出错时按类型映射成 LLMError 子类。
+        """
         import openai as _openai
 
+        # 内部历史 → Responses API 的 input 结构
         input_messages = build_openai_input(conversation.get_messages())
 
         kwargs: dict[str, Any] = {
@@ -312,10 +369,11 @@ class OpenAIClient(LLMClient):
             "input": input_messages,
             "stream": True,
         }
+        # Responses API 的 system 提示走顶层 instructions 字段
         if system:
             kwargs["instructions"] = system
         if tools:
-            kwargs["tools"] = tools
+            kwargs["tools"] = tools   # 已是 Responses 风格 schema，无需转换
 
         current_tool_name = ""
         current_call_id = ""
@@ -327,6 +385,7 @@ class OpenAIClient(LLMClient):
                 if event.type == "response.output_text.delta":
                     yield TextDelta(text=event.delta)
                 elif event.type == "response.function_call_arguments.delta":
+                    # 首个参数 delta 才带 name/call_id——用它触发 ToolCallStart
                     if not current_tool_name:
                         current_tool_name = getattr(event, "name", "") or ""
                         current_call_id = getattr(event, "call_id", "") or ""
@@ -338,6 +397,7 @@ class OpenAIClient(LLMClient):
                     json_accum += event.delta
                     yield ToolCallDelta(text=event.delta)
                 elif event.type == "response.function_call_arguments.done":
+                    # 参数下完：把累积 JSON 解析成 dict 收尾该次调用
                     if not current_tool_name:
                         current_tool_name = getattr(event, "name", "") or ""
                         current_call_id = getattr(event, "call_id", "") or ""
@@ -350,10 +410,12 @@ class OpenAIClient(LLMClient):
                         tool_name=current_tool_name,
                         arguments=args,
                     )
+                    # 复位，准备接下一次 function_call
                     current_tool_name = ""
                     current_call_id = ""
                     json_accum = ""
                 elif event.type == "response.output_item.added":
+                    # 部分 provider 先广播整个 item 再下发 delta，这里补一次 start
                     item = getattr(event, "item", None)
                     if item and getattr(item, "type", "") == "function_call":
                         current_tool_name = getattr(item, "name", "")
@@ -378,7 +440,7 @@ class OpenAIClient(LLMClient):
                         input_tokens=max(input_tokens - cache_read, 0),
                         output_tokens=getattr(usage, "output_tokens", 0) or 0,
                         cache_read=cache_read,
-                        cache_creation=0,
+                        cache_creation=0,   # Responses 不报 cache creation
                     )
 
         except _openai.AuthenticationError as e:
@@ -407,6 +469,12 @@ class OpenAICompatClient(LLMClient):
     """
 
     def __init__(self, config: ProviderConfig) -> None:
+        """构造兼容客户端的 AsyncOpenAI 连接（指向任意 openai 兼容 base_url）。
+
+        输入: config——该 provider 的配置。
+        作用: 预取模型名 / 输出预算；key 缺失即抛认证错。
+        输出: 无（副作用：初始化 self._client）。
+        """
         self.model = config.model
         self.max_output_tokens = config.get_max_output_tokens()
         api_key = config.resolve_api_key()
@@ -418,6 +486,7 @@ class OpenAICompatClient(LLMClient):
         self._client = AsyncOpenAI(api_key=api_key, base_url=config.base_url)
 
     def set_max_output_tokens(self, tokens: int) -> None:
+        """供主循环在输出截断时调高预算。"""
         self.max_output_tokens = tokens
 
     @staticmethod
@@ -453,6 +522,13 @@ class OpenAICompatClient(LLMClient):
         system: str = "",
         tools: list[dict[str, Any]] | None = None,
     ) -> AsyncIterator[StreamEvent]:
+        """OpenAI Chat Completions 实现：兼容 vLLM/Ollama/本地服务等。
+
+        输入: conversation / system / tools——同上接口约定。
+        作用: 走 /chat/completions 的流式增量；tool schema 转成嵌套 function 结构；
+              按 chunk.choices[0].delta 分派文本 / 工具调用增量 / 收尾 usage。
+        输出: 异步事件流；出错时按类型映射成 LLMError 子类。
+        """
         import openai as _openai
 
         messages = build_chat_completion_messages(conversation.get_messages())
@@ -466,7 +542,7 @@ class OpenAICompatClient(LLMClient):
             "messages": messages,
             "max_tokens": self.max_output_tokens,
             "stream": True,
-            "stream_options": {"include_usage": True},
+            "stream_options": {"include_usage": True},   # 让末 chunk 携带 usage
         }
         if tools:
             kwargs["tools"] = self._convert_tools(tools)
@@ -510,6 +586,7 @@ class OpenAICompatClient(LLMClient):
                 if delta and delta.tool_calls:
                     for tc in delta.tool_calls:
                         idx = tc.index
+                        # 同一索引的多次 delta 归并到同一个进行中的调用
                         if idx not in active_calls:
                             active_calls[idx] = {"id": "", "name": "", "args": ""}
                         call = active_calls[idx]
@@ -518,6 +595,7 @@ class OpenAICompatClient(LLMClient):
                             call["id"] = tc.id
                         if tc.function and tc.function.name:
                             call["name"] = tc.function.name
+                            # name 首次出现即认为该调用开始
                             yield ToolCallStart(
                                 tool_name=call["name"],
                                 tool_id=call["id"],
@@ -529,11 +607,12 @@ class OpenAICompatClient(LLMClient):
                 # --- 结束原因 ---
                 if choice.finish_reason in ("tool_calls", "stop"):
                     if choice.finish_reason == "tool_calls":
+                        # 流结束前把每个累积的调用按发起顺序收尾解析
                         for _idx, call in sorted(active_calls.items()):
                             try:
                                 args = json.loads(call["args"]) if call["args"] else {}
                             except json.JSONDecodeError:
-                                args = {}
+                                args = {}   # 截断容错，交给调用方按空参处理
                             yield ToolCallComplete(
                                 tool_id=call["id"],
                                 tool_name=call["name"],
@@ -558,13 +637,19 @@ class OpenAICompatClient(LLMClient):
 
 
 def create_client(config: ProviderConfig) -> LLMClient:
+    """按 config.protocol 工厂式选型，返回对应 LLM 客户端实例。
+
+    输入: config——单个 provider 的配置。
+    作用: 把协议字符串（anthropic/openai/openai-compat）映射到具体实现类。
+    输出: LLMClient 子类实例；协议未知抛 ValueError。
+    """
     if config.protocol == "anthropic":
         return AnthropicClient(config)
     elif config.protocol == "openai":
         return OpenAIClient(config)
     elif config.protocol == "openai-compat":
         return OpenAICompatClient(config)
-    raise ValueError(f"Unknown protocol: {config.protocol}")
+    raise ValueError(f"Unknown protocol: {config.protocol}")   # 正常已被 validator 挡住
 
 
 async def resolve_context_window(config: ProviderConfig) -> None:
@@ -583,19 +668,19 @@ async def resolve_context_window(config: ProviderConfig) -> None:
     if config.context_window > 0 or config._fetched_context_window > 0:
         return
     if config.protocol != "anthropic":
-        return
+        return   # 只有 anthropic 协议的 provider 实现了 /v1/models 拉取
 
     try:
         client = create_client(config)
     except Exception:
-        return
+        return   # 连客户端都建不起来（如缺 key）——降级到映射表/默认值
     fetch = getattr(client, "fetch_model_context_window", None)
     if fetch is None:
-        return
+        return   # 该实现不提供拉取能力，直接跳过
 
     try:
         window = await fetch()
     except Exception:
-        window = None
+        window = None   # 拉取失败不阻塞启动，保持缓存为 0 走下一层
     if window:
         config.set_fetched_context_window(window)

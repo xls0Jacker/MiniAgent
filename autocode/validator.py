@@ -35,14 +35,17 @@ MODEL_CONTEXT_WINDOWS: list[tuple[str, int]] = [
 def lookup_model_context_window(model: str) -> int:
     """通过子串匹配（第 3 层），返回内置映射表中该模型对应的
     context window；没有匹配则返回 0。"""
-    m = model.lower()
+    m = model.lower()   # 模型名大小写不定，统一小写再子串匹配
     for substr, window in MODEL_CONTEXT_WINDOWS:
         if substr in m:
-            return window
-    return 0
+            return window   # 表按最具体到最通用排序，首个命中即生效
+    return 0   # 0 = "未知"，让上层继续走默认值逻辑
 
 
 class ConfigError(Exception):
+    """配置不合法时抛出的业务异常（区别于 yaml 语法错误）。
+
+    会被 CLI 入口捕获并以「Error: …」形式打到 stderr。"""
     pass
 
 
@@ -60,6 +63,7 @@ def validate_providers(raw_providers: list) -> list[dict]:
         if missing:
             raise ConfigError(f"Provider #{i + 1}: missing fields: {', '.join(missing)}")
 
+        # 先取协议再校验，保证下面按协议取到的是合法的值
         protocol = entry["protocol"]
         if protocol not in VALID_PROTOCOLS:
             raise ConfigError(
@@ -87,6 +91,7 @@ def validate_providers(raw_providers: list) -> list[dict]:
                 f"Provider #{i + 1}: max_output_tokens must be a non-negative integer"
             )
 
+        # 只留清洗后白名单字段，防配置里夹带未知键污染下游
         providers.append(
             {
                 "name": entry["name"],
@@ -130,6 +135,7 @@ def validate_mcp_servers(raw_mcp: list | None) -> list[dict]:
             raise ConfigError(f"MCP server #{i + 1}: missing 'name'")
         has_command = "command" in entry
         has_url = "url" in entry
+        # stdio 与 HTTP 两种传输只能二选一，都缺/都配都是不合法
         if has_command and has_url:
             raise ConfigError(
                 f"MCP server '{name}': cannot have both 'command' and 'url'"

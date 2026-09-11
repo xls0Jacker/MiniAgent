@@ -14,6 +14,13 @@ from autocode.permissions import PermissionMode
 
 
 def main() -> None:
+    """解析命令行并启动 AutoCode：非交互单发，或拉起 TUI 会话。
+
+    输入: 无（读取 sys.argv，以及当前目录下的 config.yaml）。
+    作用: 备好日志目录 → 解析 --mode/-p → 加载配置与 hooks →
+          给了 -p 就走非交互 _run_prompt，否则进入 AutoCodeApp TUI。
+    输出: 无（进程内打印 / 启动 UI；配置或 hook 出错时向 stderr 报错并以退出码 1 结束）。
+    """
     # 先确保 .autocode/ 目录存在，否则下面写 debug.log 会因目录不存在而崩溃
     Path(".autocode").mkdir(parents=True, exist_ok=True)
     logging.basicConfig(
@@ -44,6 +51,7 @@ def main() -> None:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
+    # 命令行 --mode 优先；未传时回退到配置文件里的档位
     mode_str = args.mode if args.mode else config.permission_mode
     permission_mode = PermissionMode(mode_str)
 
@@ -59,6 +67,7 @@ def main() -> None:
         asyncio.run(_run_prompt(config, permission_mode, hook_engine, args.p))
         return
 
+    # 局部导入：TUI 依赖较重，非交互路径（上面已 return）不必加载它们
     from autocode.app import AutoCodeApp
     from autocode.driver import NoAltScreenDriver
 
@@ -74,6 +83,13 @@ def main() -> None:
 
 
 async def _run_prompt(config, permission_mode, hook_engine, prompt: str) -> None:
+    """非交互单发：跑完一个 prompt，把最终结果文本打印到 stdout。
+
+    输入: config（已加载配置）、permission_mode、hook_engine、prompt（用户问题）。
+    作用: 组装一次完整 Agent 链路（客户端 / 权限检查 / 工具注册 / 指令），
+          用 run_to_completion 一路跑到模型直接回答。
+    输出: 无（副作用：把结果文本打印到 stdout）。
+    """
     from autocode.agent import Agent
     from autocode.client import create_client, resolve_context_window
     from autocode.conversation import ConversationManager
@@ -87,7 +103,7 @@ async def _run_prompt(config, permission_mode, hook_engine, prompt: str) -> None
     from autocode.tools import create_default_registry, register_demo_tools
     from autocode.tools.impl.tool_search import ToolSearchTool
 
-    provider = config.providers[0]
+    provider = config.providers[0]   # 非交互模式固定用配置里的第一个 provider
     client = create_client(provider)
     # 第 2 层：尽力从 provider 自动拉取模型的 context window（缓存在 provider 上）。
     # 不会抛异常或阻塞启动；失败则退化到映射表。
@@ -108,6 +124,7 @@ async def _run_prompt(config, permission_mode, hook_engine, prompt: str) -> None
 
     instructions = load_instructions(work_dir)
     registry = create_default_registry()
+    # 延迟发现的兜底搜索工具：schema 不预载，靠 ToolSearchTool 按需搜索加载
     registry.register(ToolSearchTool(registry, protocol=provider.protocol))
     register_demo_tools(registry)
 
