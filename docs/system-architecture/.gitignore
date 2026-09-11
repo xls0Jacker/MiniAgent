@@ -1,5 +1,5 @@
 # 浏览器证据边车（visual-check 回执）
 # 是校验产物而非项目展示内容，本地保留，不进 git
-runtime-architecture.visual-check.*.png
-runtime-architecture.visual-check.html
-runtime-architecture.visual-check.json
+system-architecture.visual-check.*.png
+system-architecture.visual-check.html
+system-architecture.visual-check.json

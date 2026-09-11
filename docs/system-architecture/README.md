@@ -1,6 +1,6 @@
-# AutoCode MiniAgent 运行时架构图
+# AutoCode MiniAgent 系统架构图
 
-一张可交互的运行时架构图：**12 个节点、13 条关系**，每个节点都挂着真实源码的文件与行号。
+一张可交互的系统架构图：**12 个节点、13 条关系**，每个节点都挂着真实源码的文件与行号。
 
 主链路是 `用户 → AutoCodeApp → Agent 主循环 → LLMClient → LLM API`；Agent 上方挂 `System Prompt 组装`、`双层压缩`，下方挂 `权限分层`、`ToolRegistry → MCP Servers`、`HookEngine`、`Session / Memory`。
 
@@ -10,18 +10,18 @@
 
 **已经在网上发布了**，直接用浏览器打开即可，无需任何本地操作：
 
-**<https://xls0Jacker.github.io/MiniAgent/runtime-architecture/runtime-architecture.html>**
+**<https://xls0Jacker.github.io/MiniAgent/system-architecture/system-architecture.html>**
 
 下面三种是**本地查看**的办法（离线、或想拿一份副本）。
 
-`runtime-architecture.html` 是**自包含单文件**——HTML、CSS、JavaScript、SVG 全在里面，没有任何外部资源引用（已验证：0 条外部链接）。不需要装依赖、不需要构建，一个文件就是全部。用现代浏览器打开即可（Chrome / Edge / Firefox / Safari，需支持 `ResizeObserver` 与 `color-mix`）。
+`system-architecture.html` 是**自包含单文件**——HTML、CSS、JavaScript、SVG 全在里面，没有任何外部资源引用（已验证：0 条外部链接）。不需要装依赖、不需要构建，一个文件就是全部。用现代浏览器打开即可（Chrome / Edge / Firefox / Safari，需支持 `ResizeObserver` 与 `color-mix`）。
 
 所以问题只剩一个：**怎么让浏览器拿到这个文件**。下面按情形选一条，命令都以 Linux 终端为准。
 
 ### A. 机器有图形界面
 
 ```bash
-xdg-open runtime-architecture.html
+xdg-open system-architecture.html
 ```
 
 ### B. SSH 到远程服务器（无图形界面）
@@ -30,21 +30,21 @@ xdg-open runtime-architecture.html
 
 ```bash
 # 终端 1 —— 远程：在图纸目录起服务
-cd /path/to/MiniAgent/docs/runtime-architecture
+cd /path/to/MiniAgent/docs/system-architecture
 python3 -m http.server 8000 --bind 127.0.0.1
 
 # 终端 2 —— 本地：把远程端口转发出来
 ssh -N -L 8000:localhost:8000 <user>@<host>
 ```
 
-然后本地浏览器打开 **<http://localhost:8000/runtime-architecture/runtime-architecture.html>**（路径全是 ASCII，可以直接敲）。
+然后本地浏览器打开 **<http://localhost:8000/system-architecture/system-architecture.html>**（路径全是 ASCII，可以直接敲）。
 
 `--bind 127.0.0.1` 是刻意的：服务只监听回环地址、不对外网暴露，唯一的入口就是那条 SSH 转发通道。看完 Ctrl-C 停掉即可。
 
 ### C. 只想拿一份本地副本
 
 ```bash
-scp <user>@<host>:/path/to/MiniAgent/docs/runtime-architecture/runtime-architecture.html .
+scp <user>@<host>:/path/to/MiniAgent/docs/system-architecture/system-architecture.html .
 ```
 
 因为是单文件，拷这一个就够——不需要连 `.json` 和证据文件一起拿。整个目录一起拷的话用 `scp -r`。
@@ -55,7 +55,7 @@ scp <user>@<host>:/path/to/MiniAgent/docs/runtime-architecture/runtime-architect
 
 终端在这条链路上只负责**把文件送到浏览器**：要么起服务转发端口（B），要么拷到本地（C）。别指望在终端里把它渲染出来。
 
-> macOS 用 `open runtime-architecture.html`，Windows 用 `start runtime-architecture.html`，其余同理。
+> macOS 用 `open system-architecture.html`，Windows 用 `start system-architecture.html`，其余同理。
 
 ### 图上有什么
 
@@ -140,13 +140,13 @@ autocode/agent.py:416   run() 主循环
 
 | 文件 | 说明 | 进 git |
 |---|---|---|
-| `runtime-architecture.html` | 图本身，自包含单文件 | ✅ |
-| `runtime-architecture.json` | 图的输入规格，改文案/加节点改这个 | ✅ |
+| `system-architecture.html` | 图本身，自包含单文件 | ✅ |
+| `system-architecture.json` | 图的输入规格，改文案/加节点改这个 | ✅ |
 | `preview.png` | 缩略预览图（2048×1320 浅色），供仓库根 README 内嵌 | ✅ |
 | `.gitignore` | 屏蔽本目录下的浏览器证据文件 | ✅ |
-| `runtime-architecture.visual-check.*.png` | 4 张浏览器截图（1440×900 与 2048×1320，各明暗两套） | ❌ 本地 |
-| `runtime-architecture.visual-check.html` | 截图的 contact sheet | ❌ 本地 |
-| `runtime-architecture.visual-check.json` | `visual-check` 的校验回执 | ❌ 本地 |
+| `system-architecture.visual-check.*.png` | 4 张浏览器截图（1440×900 与 2048×1320，各明暗两套） | ❌ 本地 |
+| `system-architecture.visual-check.html` | 截图的 contact sheet | ❌ 本地 |
+| `system-architecture.visual-check.json` | `visual-check` 的校验回执 | ❌ 本地 |
 
 带 ❌ 的是**校验产物**而不是项目内容，已在 `.gitignore` 里排除，只留在本地。需要时重跑 `visual-check` 就能重建。
 
@@ -154,25 +154,25 @@ autocode/agent.py:416   run() 主循环
 
 ## 重新生成与校验
 
-图由 [archify](https://github.com/tt-a1i/archify) 从 `runtime-architecture.json` 生成。**所有命令都要在仓库根目录执行**，`--repo-root .` 会让校验器按 commit 去读 Git 对象、逐条验证源码引用是否真实存在。
+图由 [archify](https://github.com/tt-a1i/archify) 从 `system-architecture.json` 生成。**所有命令都要在仓库根目录执行**，`--repo-root .` 会让校验器按 commit 去读 Git 对象、逐条验证源码引用是否真实存在。
 
 ```bash
 ARCHIFY=<archify 所在目录>
 
 # 1. 校验：9 项 artifact 检查 + 每条源码引用
 node $ARCHIFY/bin/archify.mjs validate architecture \
-  docs/runtime-architecture/runtime-architecture.json \
+  docs/system-architecture/system-architecture.json \
   --quality showcase --repo-root . --json
 
 # 2. 交付：校验全过后才写 HTML，回执含 SHA-256 与字节数
 node $ARCHIFY/bin/archify.mjs deliver architecture \
-  docs/runtime-architecture/runtime-architecture.json \
-  docs/runtime-architecture/runtime-architecture.html \
+  docs/system-architecture/system-architecture.json \
+  docs/system-architecture/system-architecture.html \
   --quality showcase --repo-root . --json
 
 # 3. 浏览器证据：在 4 档视口测量，截图写入本目录
 node $ARCHIFY/bin/archify.mjs visual-check \
-  docs/runtime-architecture/runtime-architecture.html --json
+  docs/system-architecture/system-architecture.html --json
 ```
 
 第 2 步失败时**不会**覆盖已有的 HTML，旧产物会保留——这时候不要接着跑第 3 步，否则量到的是上一版产物。第 3 步需要本机有 Chrome / Chromium；找不到时会返回 `skipped` 而不是失败。
@@ -189,6 +189,6 @@ readability: 最小投影字号 6.64px ≥ 阈值 6px
 
 ## 不在图里的东西
 
-- **没有时序维度**：这是一张静态的运行时架构图，不是时序图。一轮对话的先后顺序在卡片文案里，不在拓扑上。
+- **没有时序维度**：这是一张静态的系统架构图，不是时序图。一轮对话的先后顺序在卡片文案里，不在拓扑上。
 - **不是部署图**：没有进程、主机、容器边界。全部节点都在同一台机器上的同一个进程里（MCP Servers 除外，它是 stdio 子进程）。
-- **不是完整模块清单**：仓库有约 40 个模块，图上只画了运行时主链路经过的 12 个。细粒度模块说明见 `docs/01-09` 那九篇模块解读。
+- **不是完整模块清单**：仓库有约 40 个模块，图上只画了主链路经过的 12 个。细粒度模块说明见 `docs/01-09` 那九篇模块解读。

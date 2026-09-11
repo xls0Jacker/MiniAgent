@@ -1,6 +1,6 @@
 # 模块机制图
 
-一组**模块机制图**：现有 [`docs/runtime-architecture/runtime-architecture.html`](../runtime-architecture/runtime-architecture.html) 是总览图（一轮对话经过哪些模块），这里每个模块各一张，回答**这个模块自己怎么工作**。
+一组**模块机制图**：现有 [`system-architecture.html`](../system-architecture/system-architecture.html) 是总览图（一轮对话经过哪些模块），这里每个模块各一张，回答**这个模块自己怎么工作**。
 
 每张图都带**真实源码行号**——点任意节点打开面板，能看到 `文件:行号` 并可跳到 GitHub 对应行。
 
@@ -14,7 +14,7 @@
 
 换掉中间那段模块名就是其它九张图（`prompt-assembly` / `llm-client` / …）。
 
-下面是**本地查看**的办法（离线、或想拿一份副本）。打开方式与总览图完全相同（自包含单文件，见[总览图 README](../runtime-architecture/README.md#怎么看)）。SSH 场景下最省事的一条：
+下面是**本地查看**的办法（离线、或想拿一份副本）。打开方式与总览图完全相同（自包含单文件，见[总览图 README](../system-architecture/README.md#怎么看)）。SSH 场景下最省事的一条：
 
 ```bash
 # 终端 1（远程）
@@ -162,7 +162,7 @@ python3 docs/module-architecture/label_collisions.py docs/module-architecture/*/
 ## 与总览图的关系
 
 ```
-runtime-architecture.html        ← 总览：12 节点，一轮对话经过哪些模块
+system-architecture.html        ← 总览：12 节点，一轮对话经过哪些模块
         │
         ├── agent-loop.html          ← 模块图：Agent 主循环节点内部怎么跑
         ├── prompt-assembly.html     ← 模块图：System Prompt 组装节点内部怎么拼

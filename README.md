@@ -43,7 +43,7 @@ node does and where it lives in the source. Across all diagrams there are **353 
 references**, each one pointing at a real file and line: click it and GitHub opens at that exact
 line.
 
-![AutoCode MiniAgent runtime architecture overview](https://raw.githubusercontent.com/xls0Jacker/MiniAgent/main/docs/runtime-architecture/preview.png)
+![AutoCode MiniAgent system architecture overview](https://raw.githubusercontent.com/xls0Jacker/MiniAgent/main/docs/system-architecture/preview.png)
 
 **The overview diagram** — 12 nodes, 13 relationships. The spine runs
 `User → AutoCodeApp → Agent loop → LLMClient → LLM API`. `System Prompt assembly` and
@@ -53,8 +53,8 @@ line.
 > The image above is a **downscaled preview**. README body width is around 880px, so a 2048px
 > source gets scaled down and the node labels stop being readable. Open the live version to pan,
 > zoom, and click through the nodes →
-> **[runtime-architecture.html](https://xls0Jacker.github.io/MiniAgent/runtime-architecture/runtime-architecture.html)**
-> (to run one locally instead, see [how to open it](docs/runtime-architecture/README.md#怎么看)).
+> **[system-architecture.html](https://xls0Jacker.github.io/MiniAgent/system-architecture/system-architecture.html)**
+> (to run one locally instead, see [how to open it](docs/system-architecture/README.md#怎么看)).
 >
 > **For English readers:** this is a Chinese-language project. The diagrams, the diagram READMEs
 > they link to, and most of the in-code comments and docstrings are written in Chinese
@@ -334,8 +334,8 @@ Plus the [test documentation](docs/testing.md). All of these are in Chinese.
 
 ### Architecture diagrams (11)
 
-- [System overview](https://xls0Jacker.github.io/MiniAgent/runtime-architecture/runtime-architecture.html) — 12 nodes, which
-  modules one turn passes through ([how to view](docs/runtime-architecture/README.md#怎么看))
+- [System overview](https://xls0Jacker.github.io/MiniAgent/system-architecture/system-architecture.html) — 12 nodes, which
+  modules one turn passes through ([how to view](docs/system-architecture/README.md#怎么看))
 - [10 module diagrams](docs/module-architecture/README.md) — how each module works internally;
   see [the table above](#the-10-module-diagrams)
 

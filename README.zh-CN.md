@@ -32,7 +32,7 @@ Harness 直接对接真实 LLM API。`autocode/` 约 **12.5k 行**，`tests/` �
 点任意节点会打开「语义护照」面板（节点信息 + 源码出处），挂 `文件:行号` 的**真实源码证据**，
 点一下就跳到 GitHub 上那一行。全图共 **353 条源码引用**，每条都对应源码里的真实位置。
 
-![AutoCode MiniAgent 运行时架构总览](https://raw.githubusercontent.com/xls0Jacker/MiniAgent/main/docs/runtime-architecture/preview.png)
+![AutoCode MiniAgent 系统架构总览](https://raw.githubusercontent.com/xls0Jacker/MiniAgent/main/docs/system-architecture/preview.png)
 
 **总览图**：12 节点、13 关系。主链路 `用户 → AutoCodeApp → Agent 主循环 → LLMClient → LLM API`；
 上侧挂 `System Prompt 组装`、`双层压缩`，下侧挂 `权限分层`、`ToolRegistry → MCP Servers`、
@@ -40,8 +40,8 @@ Harness 直接对接真实 LLM API。`autocode/` 约 **12.5k 行**，`tests/` �
 
 > 上面是**缩略预览**：README 正文宽度约 880px，2048px 的原图会被缩小，节点小字读不清。
 > 看细节请打开在线版，可缩放、可点节点 →
-> **[runtime-architecture.html](https://xls0Jacker.github.io/MiniAgent/runtime-architecture/runtime-architecture.html)**
-> （想在本地跑一份，见[总览图说明](docs/runtime-architecture/README.md#怎么看)）。
+> **[system-architecture.html](https://xls0Jacker.github.io/MiniAgent/system-architecture/system-architecture.html)**
+> （想在本地跑一份，见[总览图说明](docs/system-architecture/README.md#怎么看)）。
 
 ### 10 张模块机制图
 
@@ -287,8 +287,8 @@ uv run python -m pytest tests/ -q
 
 ### 架构图（11 张）
 
-- [系统总览图](https://xls0Jacker.github.io/MiniAgent/runtime-architecture/runtime-architecture.html) —— 12 节点，一轮对话经过哪些模块
-  （[怎么看](docs/runtime-architecture/README.md#怎么看)）
+- [系统总览图](https://xls0Jacker.github.io/MiniAgent/system-architecture/system-architecture.html) —— 12 节点，一轮对话经过哪些模块
+  （[怎么看](docs/system-architecture/README.md#怎么看)）
 - [10 张模块机制图](docs/module-architecture/README.md) —— 每个模块自己怎么工作，见[上方表格](#10-张模块机制图)
 
 ---
