@@ -1,0 +1,523 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "AutoCode MiniAgent 运行时架构",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/xls0Jacker/MiniAgent",
+      "revision": "d1d07182cda2695d8bc6b98fd01249a1b93a5911"
+    },
+    "views": [
+      {
+        "id": "main-path",
+        "label": "主链路",
+        "focus": [
+          "user",
+          "tui",
+          "agent",
+          "client",
+          "llm"
+        ],
+        "note": "用户输入进 TUI，Agent 每轮调 LLM 流式推理，直到模型直接回答。"
+      },
+      {
+        "id": "guardrails",
+        "label": "护栏与压缩",
+        "focus": [
+          "agent",
+          "compact",
+          "perm"
+        ],
+        "note": "轮次上限、未知工具熔断、双层上下文压缩、权限分层——四道独立的刹车。"
+      },
+      {
+        "id": "tool-chain",
+        "label": "工具与 MCP",
+        "focus": [
+          "agent",
+          "perm",
+          "tools",
+          "mcp"
+        ],
+        "note": "工具调用先过权限闸，再进注册表执行；MCP 工具以同一接口动态接入。"
+      },
+      {
+        "id": "persistence",
+        "label": "持久化与钩子",
+        "focus": [
+          "agent",
+          "hooks",
+          "memory"
+        ],
+        "note": "每轮落盘 JSONL，长程记忆跨会话召回；生命周期钩子可拦截工具执行。"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "user",
+      "type": "external",
+      "label": "用户",
+      "sublabel": "终端输入 prompt",
+      "pos": [
+        38,
+        206
+      ],
+      "size": [
+        100,
+        60
+      ]
+    },
+    {
+      "id": "tui",
+      "type": "frontend",
+      "label": "AutoCodeApp",
+      "sublabel": "Textual TUI · 聊天区/工具卡片",
+      "pos": [
+        238,
+        204
+      ],
+      "size": [
+        140,
+        64
+      ],
+      "sources": [
+        {
+          "path": "autocode/app.py",
+          "line": 499,
+          "label": "AutoCodeApp"
+        },
+        {
+          "path": "autocode/app.py",
+          "line": 1031,
+          "label": "_send_message"
+        }
+      ]
+    },
+    {
+      "id": "agent",
+      "type": "backend",
+      "label": "Agent 主循环",
+      "sublabel": "ReAct：stream → tools → 回填",
+      "pos": [
+        468,
+        190
+      ],
+      "size": [
+        170,
+        92
+      ],
+      "tag": "async 生成器",
+      "sources": [
+        {
+          "path": "autocode/agent.py",
+          "line": 302,
+          "label": "class Agent"
+        },
+        {
+          "path": "autocode/agent.py",
+          "line": 416,
+          "label": "run() 主循环"
+        }
+      ]
+    },
+    {
+      "id": "client",
+      "type": "backend",
+      "label": "LLMClient",
+      "sublabel": "anthropic · openai · compat",
+      "pos": [
+        738,
+        204
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "tag": "三协议",
+      "sources": [
+        {
+          "path": "autocode/client.py",
+          "line": 102,
+          "label": "LLMClient ABC"
+        },
+        {
+          "path": "autocode/client.py",
+          "line": 560,
+          "label": "create_client"
+        }
+      ]
+    },
+    {
+      "id": "llm",
+      "type": "external",
+      "label": "LLM API",
+      "sublabel": "远程推理服务 · 流式",
+      "pos": [
+        968,
+        206
+      ],
+      "size": [
+        100,
+        60
+      ]
+    },
+    {
+      "id": "prompt",
+      "type": "backend",
+      "label": "System Prompt 组装",
+      "sublabel": "身份/准则/环境/plan 提醒",
+      "pos": [
+        385,
+        70
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "autocode/prompts.py",
+          "line": 233,
+          "label": "build_system_prompt"
+        },
+        {
+          "path": "autocode/prompts.py",
+          "line": 271,
+          "label": "build_environment_context"
+        }
+      ]
+    },
+    {
+      "id": "compact",
+      "type": "backend",
+      "label": "双层压缩",
+      "sublabel": "tool-result 预算 + LLM 摘要",
+      "pos": [
+        575,
+        70
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "tag": "Layer 1 / Layer 2",
+      "sources": [
+        {
+          "path": "autocode/context/manager.py",
+          "line": 279,
+          "label": "apply_tool_result_budget"
+        },
+        {
+          "path": "autocode/context/manager.py",
+          "line": 726,
+          "label": "auto_compact"
+        }
+      ]
+    },
+    {
+      "id": "perm",
+      "type": "security",
+      "label": "权限分层",
+      "sublabel": "黑名单 · 沙箱 · 规则 · 模式 · HITL",
+      "pos": [
+        310,
+        356
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "tag": "deny / ask / allow",
+      "sources": [
+        {
+          "path": "autocode/permissions/checker.py",
+          "line": 22,
+          "label": "PermissionChecker"
+        },
+        {
+          "path": "autocode/permissions/checker.py",
+          "line": 39,
+          "label": "check()"
+        }
+      ]
+    },
+    {
+      "id": "tools",
+      "type": "backend",
+      "label": "ToolRegistry",
+      "sublabel": "内置 + 演示工具 + 动态注册",
+      "pos": [
+        500,
+        356
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "autocode/tools/__init__.py",
+          "line": 141,
+          "label": "create_default_registry"
+        },
+        {
+          "path": "autocode/tools/__init__.py",
+          "line": 162,
+          "label": "register_demo_tools"
+        }
+      ]
+    },
+    {
+      "id": "hooks",
+      "type": "messagebus",
+      "label": "HookEngine",
+      "sublabel": "生命周期钩子 · 可拦截工具",
+      "pos": [
+        690,
+        356
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "tag": "15 类事件",
+      "sources": [
+        {
+          "path": "autocode/hooks/engine.py",
+          "line": 21,
+          "label": "HookEngine"
+        },
+        {
+          "path": "autocode/hooks/events.py",
+          "line": 6,
+          "label": "LifecycleEvent"
+        }
+      ]
+    },
+    {
+      "id": "memory",
+      "type": "database",
+      "label": "Session / Memory",
+      "sublabel": "JSONL 落盘 · 长程记忆召回",
+      "pos": [
+        880,
+        356
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "tag": "JSONL",
+      "sources": [
+        {
+          "path": "autocode/memory/session.py",
+          "line": 358,
+          "label": "Session"
+        },
+        {
+          "path": "autocode/memory/auto_memory.py",
+          "line": 43,
+          "label": "MemoryManager"
+        },
+        {
+          "path": "autocode/conversation.py",
+          "line": 65,
+          "label": "ConversationManager"
+        }
+      ]
+    },
+    {
+      "id": "mcp",
+      "type": "external",
+      "label": "MCP Servers",
+      "sublabel": "stdio 子进程 · 工具动态接入",
+      "pos": [
+        500,
+        460
+      ],
+      "size": [
+        170,
+        56
+      ],
+      "sources": [
+        {
+          "path": "autocode/mcp/manager.py",
+          "line": 13,
+          "label": "MCPManager"
+        },
+        {
+          "path": "autocode/mcp/tool_wrapper.py",
+          "line": 57,
+          "label": "MCPToolWrapper"
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "user-to-tui",
+      "from": "user",
+      "to": "tui",
+      "label": "输入 prompt",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "tui-to-agent",
+      "from": "tui",
+      "to": "agent",
+      "label": "对话历史",
+      "fromSide": "right",
+      "toSide": "left",
+      "labelAt": [
+        423,
+        214
+      ]
+    },
+    {
+      "id": "agent-to-tui",
+      "from": "agent",
+      "to": "tui",
+      "label": "AgentEvent",
+      "variant": "emphasis",
+      "fromSide": "left",
+      "toSide": "right",
+      "labelAt": [
+        423,
+        250
+      ]
+    },
+    {
+      "id": "agent-to-client",
+      "from": "agent",
+      "to": "client",
+      "label": "stream()",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "client-to-llm",
+      "from": "client",
+      "to": "llm",
+      "label": "HTTPS",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "agent-to-prompt",
+      "from": "agent",
+      "to": "prompt",
+      "label": "每轮组装 system",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "agent-to-compact",
+      "from": "agent",
+      "to": "compact",
+      "label": "auto_compact() 检查",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "compact-to-client",
+      "from": "compact",
+      "to": "client",
+      "label": "LLM 摘要",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "agent-to-perm",
+      "from": "agent",
+      "to": "perm",
+      "label": "check(tool, args)",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "agent-to-tools",
+      "from": "agent",
+      "to": "tools",
+      "label": "execute(params)",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        585,
+        333
+      ]
+    },
+    {
+      "id": "agent-to-hooks",
+      "from": "agent",
+      "to": "hooks",
+      "label": "run_hooks() 生命周期",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        782,
+        334
+      ]
+    },
+    {
+      "id": "agent-to-memory",
+      "from": "agent",
+      "to": "memory",
+      "label": "历史落盘 · 记忆注入",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        975,
+        334
+      ]
+    },
+    {
+      "id": "tools-to-mcp",
+      "from": "tools",
+      "to": "mcp",
+      "label": "MCPToolWrapper 注册",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        585,
+        434
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "主链路",
+      "items": [
+        "用户输入进 TUI，ConversationManager 累积对话历史",
+        "Agent.run() 每轮组 prompt、调 stream()、执行工具、回填结果",
+        "模型不再发起工具调用时以 LoopComplete 收尾"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "护栏与压缩",
+      "items": [
+        "max_iterations 轮次上限，连续 3 次未知工具即终止",
+        "Layer 1 tool-result 预算 + Layer 2 auto_compact 摘要",
+        "compact 熔断器防止压缩反复触发"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "证据",
+      "items": [
+        "12 个节点全部挂 d1d0718 的真实文件行号",
+        "SRC 标记可点击跳转到对应 GitHub 行",
+        "行号钉在 commit 上，不随工作区改动漂移"
+      ]
+    }
+  ]
+}

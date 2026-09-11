@@ -156,7 +156,7 @@ def estimate_tokens(messages) -> int   # 基于字符的粗估
 - 压缩核心用例：`uv run python -m pytest "tests/test_context.py::TestApplyToolResultBudget" "tests/test_context.py::TestAutoCompactKeepRecent" "tests/test_context.py::TestUsageAnchor" -q`
 
 **需要知道：**
-- `docs/测试说明.md` 是全部测试的入口与总表，可反查任意模块。
+- `docs/testing.md` 是全部测试的入口与总表，可反查任意模块。
 - `test_context.py` 中 `TestBuildCompactMessages::test_basic_structure` 与 `test_memory.py`
   收集级旧失败为**存量差异，不修**，已在测试说明标注；本模块绑定只看上述绿色用例。
 - `auto_compact` 的「真实触发时机」依赖 token 估算，mock 只验证到阈值/结构层，真实长

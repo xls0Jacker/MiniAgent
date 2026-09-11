@@ -1,0 +1,652 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "MCP 接入 工作机制",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/xls0Jacker/MiniAgent",
+      "revision": "d1d07182cda2695d8bc6b98fd01249a1b93a5911"
+    },
+    "views": [
+      {
+        "id": "connect",
+        "label": "连接",
+        "focus": [
+          "cfg",
+          "client",
+          "session",
+          "stdio",
+          "http"
+        ],
+        "note": "按配置二选一：拉起子进程说 stdio，或连 url 说流式 HTTP；两者最终都交出同一种会话。"
+      },
+      {
+        "id": "register",
+        "label": "列举与注册",
+        "focus": [
+          "init",
+          "mgr",
+          "list",
+          "wrap",
+          "reg"
+        ],
+        "note": "逐服务器独立 try：列举工具、按 schema 造参数模型、统一注册进同一个注册表。"
+      },
+      {
+        "id": "adapt",
+        "label": "适配成内置工具",
+        "focus": [
+          "wrap",
+          "reg"
+        ],
+        "note": "包装类把远端工具伪装成本地工具：同样有 category、并发标记与延迟标记。"
+      },
+      {
+        "id": "call",
+        "label": "调用与自愈",
+        "focus": [
+          "exec",
+          "alive",
+          "fetch",
+          "extract"
+        ],
+        "note": "调用前探活，失败即标记死亡，下次取客户端时重建；返回值统一抽成纯文本。"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "cfg",
+      "type": "backend",
+      "label": "MCPServerConfig",
+      "sublabel": "stdio 或 url 二选一",
+      "pos": [
+        40,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/config.py",
+          "line": 132,
+          "label": "class MCPServerConfig"
+        },
+        {
+          "path": "autocode/config.py",
+          "line": 144,
+          "label": "is_stdio：有 command 即子进程"
+        },
+        {
+          "path": "autocode/config.py",
+          "line": 105,
+          "label": "headers 里的环境变量替换"
+        }
+      ]
+    },
+    {
+      "id": "client",
+      "type": "backend",
+      "label": "MCPClient.connect()",
+      "sublabel": "幂等 · 已连即返回",
+      "pos": [
+        280,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "生命周期靠栈",
+      "sources": [
+        {
+          "path": "autocode/mcp/client.py",
+          "line": 18,
+          "label": "class MCPClient"
+        },
+        {
+          "path": "autocode/mcp/client.py",
+          "line": 32,
+          "label": "async def connect"
+        },
+        {
+          "path": "autocode/mcp/client.py",
+          "line": 36,
+          "label": "AsyncExitStack 统一回收"
+        }
+      ]
+    },
+    {
+      "id": "session",
+      "type": "backend",
+      "label": "ClientSession",
+      "sublabel": "initialize 后才可用",
+      "pos": [
+        520,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/mcp/client.py",
+          "line": 45,
+          "label": "会话挂进同一个栈"
+        },
+        {
+          "path": "autocode/mcp/client.py",
+          "line": 48,
+          "label": "await session.initialize()"
+        },
+        {
+          "path": "autocode/mcp/client.py",
+          "line": 52,
+          "label": "失败先清栈再抛"
+        }
+      ]
+    },
+    {
+      "id": "init",
+      "type": "backend",
+      "label": "_init_mcp()",
+      "sublabel": "后台任务，不阻塞启动",
+      "pos": [
+        1000,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "启动时装配",
+      "sources": [
+        {
+          "path": "autocode/app.py",
+          "line": 730,
+          "label": "create_task 后台起"
+        },
+        {
+          "path": "autocode/app.py",
+          "line": 1495,
+          "label": "async def _init_mcp"
+        },
+        {
+          "path": "autocode/app.py",
+          "line": 1501,
+          "label": "register_all_tools"
+        }
+      ]
+    },
+    {
+      "id": "stdio",
+      "type": "backend",
+      "label": "stdio 分支",
+      "sublabel": "子进程 · stderr 丢 devnull",
+      "pos": [
+        40,
+        220
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "本地命令",
+      "sources": [
+        {
+          "path": "autocode/mcp/client.py",
+          "line": 57,
+          "label": "_connect_stdio"
+        },
+        {
+          "path": "autocode/mcp/client.py",
+          "line": 66,
+          "label": "errlog 指向 devnull"
+        },
+        {
+          "path": "autocode/mcp/client.py",
+          "line": 64,
+          "label": "build_child_env 组装子环境"
+        }
+      ]
+    },
+    {
+      "id": "http",
+      "type": "backend",
+      "label": "http 分支",
+      "sublabel": "httpx + 可流式传输",
+      "pos": [
+        280,
+        220
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "远端服务",
+      "sources": [
+        {
+          "path": "autocode/mcp/client.py",
+          "line": 73,
+          "label": "_connect_http"
+        },
+        {
+          "path": "autocode/mcp/client.py",
+          "line": 80,
+          "label": "httpx.AsyncClient 带 headers"
+        },
+        {
+          "path": "autocode/mcp/client.py",
+          "line": 86,
+          "label": "streamable_http_client"
+        }
+      ]
+    },
+    {
+      "id": "list",
+      "type": "backend",
+      "label": "list_tools()",
+      "sublabel": "取对端工具定义",
+      "pos": [
+        520,
+        220
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/mcp/client.py",
+          "line": 93,
+          "label": "def list_tools"
+        },
+        {
+          "path": "autocode/mcp/manager.py",
+          "line": 34,
+          "label": "调用点"
+        }
+      ]
+    },
+    {
+      "id": "mgr",
+      "type": "backend",
+      "label": "MCPManager",
+      "sublabel": "逐服务器独立失败",
+      "pos": [
+        760,
+        220
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "一台挂了不拖累其他",
+      "sources": [
+        {
+          "path": "autocode/mcp/manager.py",
+          "line": 13,
+          "label": "class MCPManager"
+        },
+        {
+          "path": "autocode/mcp/manager.py",
+          "line": 26,
+          "label": "register_all_tools"
+        },
+        {
+          "path": "autocode/mcp/manager.py",
+          "line": 40,
+          "label": "单台异常只记 warning"
+        }
+      ]
+    },
+    {
+      "id": "wrap",
+      "type": "backend",
+      "label": "MCPToolWrapper",
+      "sublabel": "远端工具伪装成本地工具",
+      "pos": [
+        40,
+        360
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "command · 不并发 · 延迟",
+      "sources": [
+        {
+          "path": "autocode/mcp/tool_wrapper.py",
+          "line": 57,
+          "label": "class MCPToolWrapper"
+        },
+        {
+          "path": "autocode/mcp/tool_wrapper.py",
+          "line": 69,
+          "label": "写死 category / 两个标记"
+        },
+        {
+          "path": "autocode/mcp/tool_wrapper.py",
+          "line": 12,
+          "label": "按 JSON schema 造参数模型"
+        }
+      ]
+    },
+    {
+      "id": "reg",
+      "type": "backend",
+      "label": "ToolRegistry",
+      "sublabel": "与内置工具同一个表",
+      "pos": [
+        520,
+        360
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "上层无感",
+      "sources": [
+        {
+          "path": "autocode/mcp/manager.py",
+          "line": 37,
+          "label": "registry.register(wrapper)"
+        },
+        {
+          "path": "autocode/tools/__init__.py",
+          "line": 18,
+          "label": "register 只按 name 存"
+        }
+      ]
+    },
+    {
+      "id": "fetch",
+      "type": "backend",
+      "label": "get_client()",
+      "sublabel": "不在就建 · 死的重建",
+      "pos": [
+        760,
+        360
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "懒连接",
+      "sources": [
+        {
+          "path": "autocode/mcp/manager.py",
+          "line": 48,
+          "label": "async def get_client"
+        },
+        {
+          "path": "autocode/mcp/manager.py",
+          "line": 59,
+          "label": "not is_alive 则重连"
+        }
+      ]
+    },
+    {
+      "id": "exec",
+      "type": "backend",
+      "label": "execute()",
+      "sublabel": "调用前先探活",
+      "pos": [
+        40,
+        500
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/mcp/tool_wrapper.py",
+          "line": 89,
+          "label": "async def execute"
+        },
+        {
+          "path": "autocode/mcp/tool_wrapper.py",
+          "line": 100,
+          "label": "client.call_tool"
+        },
+        {
+          "path": "autocode/mcp/client.py",
+          "line": 99,
+          "label": "底层 call_tool"
+        }
+      ]
+    },
+    {
+      "id": "extract",
+      "type": "backend",
+      "label": "_extract_text()",
+      "sublabel": "文本 / 图片 / 内嵌资源",
+      "pos": [
+        280,
+        500
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/mcp/tool_wrapper.py",
+          "line": 41,
+          "label": "def _extract_text"
+        },
+        {
+          "path": "autocode/mcp/tool_wrapper.py",
+          "line": 44,
+          "label": "TextContent 直接取文本"
+        },
+        {
+          "path": "autocode/mcp/tool_wrapper.py",
+          "line": 48,
+          "label": "EmbeddedResource 取正文"
+        }
+      ]
+    },
+    {
+      "id": "alive",
+      "type": "backend",
+      "label": "is_alive 标记",
+      "sublabel": "调用失败即置 False",
+      "pos": [
+        760,
+        500
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/mcp/tool_wrapper.py",
+          "line": 104,
+          "label": "异常时置 _alive = False"
+        },
+        {
+          "path": "autocode/mcp/client.py",
+          "line": 27,
+          "label": "is_alive 属性"
+        },
+        {
+          "path": "autocode/mcp/client.py",
+          "line": 114,
+          "label": "cancel scope 清理属预期"
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "cfg-client",
+      "from": "cfg",
+      "to": "client",
+      "label": "读配置",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "client-session",
+      "from": "client",
+      "to": "session",
+      "label": "建会话",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "client-stdio",
+      "from": "client",
+      "to": "stdio",
+      "label": "is_stdio 为真",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        235,
+        185
+      ]
+    },
+    {
+      "id": "client-http",
+      "from": "client",
+      "to": "http",
+      "label": "否则走 url",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        415,
+        185
+      ]
+    },
+    {
+      "id": "session-list",
+      "from": "session",
+      "to": "list",
+      "label": "列举工具",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        655,
+        185
+      ]
+    },
+    {
+      "id": "init-mgr",
+      "from": "init",
+      "to": "mgr",
+      "label": "启动时装配",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        955,
+        185
+      ]
+    },
+    {
+      "id": "list-wrap",
+      "from": "list",
+      "to": "wrap",
+      "label": "逐个包装",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        355,
+        325
+      ]
+    },
+    {
+      "id": "mgr-reg",
+      "from": "mgr",
+      "to": "reg",
+      "label": "统一注册",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        715,
+        341
+      ]
+    },
+    {
+      "id": "mgr-fetch",
+      "from": "mgr",
+      "to": "fetch",
+      "label": "懒重连",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        835,
+        341
+      ]
+    },
+    {
+      "id": "wrap-exec",
+      "from": "wrap",
+      "to": "exec",
+      "label": "被调用时",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        115,
+        465
+      ]
+    },
+    {
+      "id": "exec-extract",
+      "from": "exec",
+      "to": "extract",
+      "label": "解析返回",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "fetch-alive",
+      "from": "fetch",
+      "to": "alive",
+      "label": "探活判据",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        835,
+        465
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "每台服务器独立失败",
+      "items": [
+        "连接、列举、包装、注册全包在一个 try 里，某台挂了只记 warning 并继续下一台",
+        "工具名是 mcp_{server}_{tool}，注册进的是和内置工具同一个 ToolRegistry",
+        "所以上层不需要知道哪些工具来自 MCP——权限、并发分批、输出闸一视同仁"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "包装类写死了三个标记",
+      "items": [
+        "category 固定 command、并发标记固定 False，所以远端工具永远走串行批",
+        "should_defer 固定 True：schema 不进首轮请求，要先被工具搜索发现才下发",
+        "参数模型按对端给的 inputSchema 现造，只做 JSON 类型到本地类型的映射"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "连接是懒的，也是自愈的",
+      "items": [
+        "connect() 幂等：已连上就直接返回，不会重复拉起子进程",
+        "调用抛异常就把 is_alive 置 False，下次取客户端时重建并重试",
+        "stdio 子进程的 stderr 接到 devnull；关闭统一走 AsyncExitStack"
+      ]
+    }
+  ]
+}

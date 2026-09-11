@@ -169,7 +169,7 @@ AUTOCODE 指令 + 常驻记忆包成一个 system-reminder，**插在对话最�
 - 单条用例：`uv run python -m pytest tests/test_tui_render.py::test_app_starts_and_registers_theme -q`
 
 **需要知道：**
-- `docs/测试说明.md` 是全部测试的入口与总表，可反查任意模块。
+- `docs/testing.md` 是全部测试的入口与总表，可反查任意模块。
 - 这三个文件全部通过（无存量失败）。
 - TUI 的核心是**真实交互**：打字机流式、工具卡片点击折叠、权限弹窗点按钮、会话切换、
   记忆召回时机——mock 只能验证到「事件→widget 不崩」，完整闭环需在终端手动跑

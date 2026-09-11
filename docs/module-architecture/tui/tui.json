@@ -1,0 +1,648 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "TUI 交互 工作机制",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/xls0Jacker/MiniAgent",
+      "revision": "d1d07182cda2695d8bc6b98fd01249a1b93a5911"
+    },
+    "views": [
+      {
+        "id": "input",
+        "label": "输入侧",
+        "focus": [
+          "mount",
+          "input",
+          "submit",
+          "send"
+        ],
+        "note": "compose 出界面，输入框自带斜杠菜单与 @ 补全，回车后交给 _send_message。"
+      },
+      {
+        "id": "ladder",
+        "label": "事件梯子",
+        "focus": [
+          "send",
+          "events",
+          "bubble",
+          "toolblock",
+          "perm",
+          "askuser"
+        ],
+        "note": "整个渲染是一串 isinstance 判断，顺序即优先级；这五步是梯子的前半段。"
+      },
+      {
+        "id": "tail",
+        "label": "梯子后半段",
+        "focus": [
+          "askuser",
+          "groupsum",
+          "compact",
+          "plan"
+        ],
+        "note": "轮次结束成组折叠、压缩提示落 boundary、循环结束弹计划审批。"
+      },
+      {
+        "id": "persist",
+        "label": "收尾与持久化",
+        "focus": [
+          "groupsum",
+          "plan",
+          "session",
+          "summary"
+        ],
+        "note": "轮次结束刷盘，循环结束后台生成一句话摘要。"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "mount",
+      "type": "backend",
+      "label": "AutoCodeApp.on_mount",
+      "sublabel": "compose 出整个界面",
+      "pos": [
+        40,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/app.py",
+          "line": 611,
+          "label": "def on_mount"
+        },
+        {
+          "path": "autocode/app.py",
+          "line": 580,
+          "label": "def compose"
+        },
+        {
+          "path": "autocode/app.py",
+          "line": 642,
+          "label": "建 Memory/Session 管理器"
+        }
+      ]
+    },
+    {
+      "id": "input",
+      "type": "backend",
+      "label": "ChatInput",
+      "sublabel": "斜杠菜单 · @ 补全 · 历史",
+      "pos": [
+        280,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/app.py",
+          "line": 126,
+          "label": "class ChatInput(TextArea)"
+        },
+        {
+          "path": "autocode/app.py",
+          "line": 205,
+          "label": "action_complete 触发补全"
+        },
+        {
+          "path": "autocode/app.py",
+          "line": 90,
+          "label": "scan_files_for_at"
+        }
+      ]
+    },
+    {
+      "id": "submit",
+      "type": "backend",
+      "label": "on_chat_input_submitted",
+      "sublabel": "回车即入队",
+      "pos": [
+        520,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/app.py",
+          "line": 889,
+          "label": "提交回调"
+        },
+        {
+          "path": "autocode/app.py",
+          "line": 1042,
+          "label": "@ 引用先展开"
+        }
+      ]
+    },
+    {
+      "id": "send",
+      "type": "backend",
+      "label": "_send_message()",
+      "sublabel": "async for 消费 agent.run()",
+      "pos": [
+        760,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "渲染总入口",
+      "sources": [
+        {
+          "path": "autocode/app.py",
+          "line": 1031,
+          "label": "async def _send_message"
+        },
+        {
+          "path": "autocode/app.py",
+          "line": 1105,
+          "label": "async for event in agent.run"
+        },
+        {
+          "path": "autocode/app.py",
+          "line": 1046,
+          "label": "顺带预取记忆召回"
+        }
+      ]
+    },
+    {
+      "id": "events",
+      "type": "backend",
+      "label": "AgentEvent ×12",
+      "sublabel": "isinstance 全量分发",
+      "pos": [
+        1000,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "无 default 兜底",
+      "sources": [
+        {
+          "path": "autocode/agent.py",
+          "line": 152,
+          "label": "AgentEvent 联合类型"
+        },
+        {
+          "path": "autocode/app.py",
+          "line": 1106,
+          "label": "梯子起点 ThinkingText"
+        },
+        {
+          "path": "autocode/app.py",
+          "line": 1233,
+          "label": "梯子终点 LoopComplete"
+        }
+      ]
+    },
+    {
+      "id": "bubble",
+      "type": "backend",
+      "label": "流式气泡",
+      "sublabel": "累积后整段重渲染",
+      "pos": [
+        40,
+        220
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/app.py",
+          "line": 1109,
+          "label": "StreamText 分支"
+        },
+        {
+          "path": "autocode/app.py",
+          "line": 1114,
+          "label": "累积后 update 整段"
+        },
+        {
+          "path": "autocode/app.py",
+          "line": 1236,
+          "label": "收尾补渲染剩余文本"
+        }
+      ]
+    },
+    {
+      "id": "toolblock",
+      "type": "backend",
+      "label": "ToolCallBlock",
+      "sublabel": "可折叠 · 点击展开",
+      "pos": [
+        280,
+        220
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/app.py",
+          "line": 341,
+          "label": "class ToolCallBlock"
+        },
+        {
+          "path": "autocode/app.py",
+          "line": 1125,
+          "label": "ToolUseEvent 挂新块"
+        },
+        {
+          "path": "autocode/app.py",
+          "line": 384,
+          "label": "on_click 切换展开"
+        }
+      ]
+    },
+    {
+      "id": "perm",
+      "type": "security",
+      "label": "权限弹窗",
+      "sublabel": "yield 后 await future",
+      "pos": [
+        520,
+        220
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "挂起等用户",
+      "sources": [
+        {
+          "path": "autocode/app.py",
+          "line": 1147,
+          "label": "PermissionRequest 分支"
+        },
+        {
+          "path": "autocode/app.py",
+          "line": 1394,
+          "label": "_handle_permission_request"
+        },
+        {
+          "path": "autocode/app.py",
+          "line": 1422,
+          "label": "future 存活才写回"
+        }
+      ]
+    },
+    {
+      "id": "askuser",
+      "type": "security",
+      "label": "提问弹窗",
+      "sublabel": "借 ToolResultEvent 触发",
+      "pos": [
+        760,
+        220
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "旁路触发",
+      "sources": [
+        {
+          "path": "autocode/app.py",
+          "line": 1156,
+          "label": "工具结果里查待处理提问"
+        },
+        {
+          "path": "autocode/app.py",
+          "line": 1317,
+          "label": "_handle_askuser"
+        }
+      ]
+    },
+    {
+      "id": "groupsum",
+      "type": "backend",
+      "label": "ToolGroupSummary",
+      "sublabel": "≥2 个折叠块就成组",
+      "pos": [
+        40,
+        360
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "TurnComplete 触发",
+      "sources": [
+        {
+          "path": "autocode/app.py",
+          "line": 454,
+          "label": "class ToolGroupSummary"
+        },
+        {
+          "path": "autocode/app.py",
+          "line": 1172,
+          "label": "达到 2 个就合并成一行"
+        },
+        {
+          "path": "autocode/app.py",
+          "line": 1183,
+          "label": "换新 ai 行继续"
+        }
+      ]
+    },
+    {
+      "id": "compact",
+      "type": "backend",
+      "label": "压缩提示",
+      "sublabel": "提示 + 落 boundary 记录",
+      "pos": [
+        280,
+        360
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "游标一起前推",
+      "sources": [
+        {
+          "path": "autocode/app.py",
+          "line": 1199,
+          "label": "CompactNotification 分支"
+        },
+        {
+          "path": "autocode/app.py",
+          "line": 827,
+          "label": "_persist_compact_boundary"
+        },
+        {
+          "path": "autocode/app.py",
+          "line": 1207,
+          "label": "历史游标推到末尾"
+        }
+      ]
+    },
+    {
+      "id": "plan",
+      "type": "backend",
+      "label": "计划审批",
+      "sublabel": "LoopComplete 且 plan_mode",
+      "pos": [
+        760,
+        360
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/app.py",
+          "line": 1230,
+          "label": "plan_mode 判定"
+        },
+        {
+          "path": "autocode/app.py",
+          "line": 1261,
+          "label": "_show_plan_approval"
+        },
+        {
+          "path": "autocode/app.py",
+          "line": 1272,
+          "label": "内联组件回执"
+        }
+      ]
+    },
+    {
+      "id": "session",
+      "type": "database",
+      "label": "session 刷盘",
+      "sublabel": "只追加游标之后的新消息",
+      "pos": [
+        280,
+        500
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "游标防重写",
+      "sources": [
+        {
+          "path": "autocode/app.py",
+          "line": 1160,
+          "label": "TurnComplete 时追加"
+        },
+        {
+          "path": "autocode/app.py",
+          "line": 1219,
+          "label": "LoopComplete 时追加"
+        },
+        {
+          "path": "autocode/app.py",
+          "line": 1078,
+          "label": "全程维护 history_cursor"
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "type": "backend",
+      "label": "_update_session_summary",
+      "sublabel": "后台生成一句话摘要",
+      "pos": [
+        760,
+        500
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "不阻塞界面",
+      "sources": [
+        {
+          "path": "autocode/app.py",
+          "line": 1227,
+          "label": "ensure_future 后台起"
+        },
+        {
+          "path": "autocode/app.py",
+          "line": 1476,
+          "label": "async def _update_session_summary"
+        },
+        {
+          "path": "autocode/app.py",
+          "line": 1223,
+          "label": "同时记总 token"
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "mount-input",
+      "from": "mount",
+      "to": "input",
+      "label": "装配输入框",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "input-submit",
+      "from": "input",
+      "to": "submit",
+      "label": "回车",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "submit-send",
+      "from": "submit",
+      "to": "send",
+      "label": "开跑",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "send-events",
+      "from": "send",
+      "to": "events",
+      "label": "async for",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "events-bubble",
+      "from": "events",
+      "to": "bubble",
+      "label": "流式文本",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        475,
+        169
+      ]
+    },
+    {
+      "id": "bubble-toolblock",
+      "from": "bubble",
+      "to": "toolblock",
+      "label": "工具调用",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "toolblock-perm",
+      "from": "toolblock",
+      "to": "perm",
+      "label": "权限请求",
+      "variant": "security",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "perm-askuser",
+      "from": "perm",
+      "to": "askuser",
+      "label": "工具结果",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "askuser-groupsum",
+      "from": "askuser",
+      "to": "groupsum",
+      "label": "继续往下匹配",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        475,
+        341
+      ]
+    },
+    {
+      "id": "groupsum-compact",
+      "from": "groupsum",
+      "to": "compact",
+      "label": "轮次结束",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "compact-plan",
+      "from": "compact",
+      "to": "plan",
+      "label": "循环结束",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "groupsum-session",
+      "from": "groupsum",
+      "to": "session",
+      "label": "写回 session",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        235,
+        465
+      ]
+    },
+    {
+      "id": "plan-summary",
+      "from": "plan",
+      "to": "summary",
+      "label": "后台生成摘要",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        835,
+        465
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "12 种事件，一串 isinstance",
+      "items": [
+        "渲染就是 agent.run() 回调里的一串 isinstance，顺序即优先级",
+        "12 种全有显式分支、没有 default——新增事件会立刻暴露成未处理",
+        "轮次级事件管成组与刷盘，循环级事件管收尾与摘要"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "三处挂起都要等用户",
+      "items": [
+        "权限：yield 权限请求后 await future，弹窗期间输入框被禁用",
+        "提问：AskUserQuestion 不直接 yield，靠工具结果事件旁路触发",
+        "计划：循环结束且处于 plan 模式才弹；三处都有 future 竞态守卫"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "渲染件是几件固定小组件",
+      "items": [
+        "流式文本累积后整段重渲染，不是逐块追加，避免反复重排版",
+        "工具块可折叠；同一行够 2 个就合并成摘要行并另起新行",
+        "resume 时把历史消息重放成同样的气泡结构"
+      ]
+    }
+  ]
+}

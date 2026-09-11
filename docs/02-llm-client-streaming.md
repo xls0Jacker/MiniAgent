@@ -136,7 +136,7 @@ openai-compat）流式事件归一与消息/工具调用序列化，覆盖本模
 - 单条用例：`uv run python -m pytest tests/test_serialization.py::test_openai_input_tool_use_as_function_call -q`
 
 **需要知道：**
-- `docs/测试说明.md` 是全部测试的入口与总表，可反查任意模块。
+- `docs/testing.md` 是全部测试的入口与总表，可反查任意模块。
 - 本文件测试全部通过（无存量失败）。
 - 真实 LLM 的流式输出、prompt cache 计数字段、思考块形态不在 mock 测试范围，需 TUI
   手动验证。

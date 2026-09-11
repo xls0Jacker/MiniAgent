@@ -128,7 +128,7 @@ while True:
 - 单类用例（MCP 配置加载）：`uv run python -m pytest "tests/test_mcp.py::TestResolveEnvVars" "tests/test_mcp.py::TestBuildChildEnv" -q`
 
 **需要知道：**
-- `docs/测试说明.md` 是全部测试的入口与总表，可反查任意模块。
+- `docs/testing.md` 是全部测试的入口与总表，可反查任意模块。
 - `tests/test_mcp.py::TestLoadConfigMCP` 中 4 项为存量差异（validator 行为不一致），已在
   测试说明标注「不修」；本模块绑定只看 `TestResolveEnvVars` / `TestBuildChildEnv` 等配置
   相关绿色用例。

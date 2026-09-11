@@ -1,0 +1,707 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "上下文压缩 工作机制",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/xls0Jacker/MiniAgent",
+      "revision": "d1d07182cda2695d8bc6b98fd01249a1b93a5911"
+    },
+    "views": [
+      {
+        "id": "layer1",
+        "label": "Layer 1 三趟预算",
+        "focus": [
+          "l1",
+          "p1",
+          "p2",
+          "p3"
+        ],
+        "note": "每轮都跑，纯本地不调模型：单条超限、聚合超限、陈旧裁剪三趟各管一件事。"
+      },
+      {
+        "id": "persist",
+        "label": "落盘与记录",
+        "focus": [
+          "p1",
+          "p2",
+          "persist",
+          "preview",
+          "records"
+        ],
+        "note": "两趟超限都走同一个落盘函数，落盘后把决策逐条追加成记录，供 resume 重建。"
+      },
+      {
+        "id": "layer2",
+        "label": "Layer 2 触发与摘要",
+        "focus": [
+          "token",
+          "threshold",
+          "breaker",
+          "l2",
+          "keep"
+        ],
+        "note": "按 token 阈值触发，要花一次模型调用；前缀太小或连续失败都会退化。"
+      },
+      {
+        "id": "after",
+        "label": "压缩之后",
+        "focus": [
+          "l2",
+          "cleanup",
+          "boundary",
+          "recovery"
+        ],
+        "note": "历史被整体换掉：落盘目录清空、结构化 boundary 交给 session 层、恢复附件拼进摘要消息。"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "l1",
+      "type": "backend",
+      "label": "Layer 1 · 结果预算",
+      "sublabel": "apply_tool_result_budget",
+      "pos": [
+        40,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "每轮 · 不调模型",
+      "sources": [
+        {
+          "path": "autocode/context/manager.py",
+          "line": 279,
+          "label": "def apply_tool_result_budget"
+        },
+        {
+          "path": "autocode/context/manager.py",
+          "line": 284,
+          "label": "Design B：不原地改"
+        },
+        {
+          "path": "autocode/context/manager.py",
+          "line": 375,
+          "label": "返回新的 ConversationManager"
+        }
+      ]
+    },
+    {
+      "id": "p1",
+      "type": "backend",
+      "label": "Pass 1 · 单条超限",
+      "sublabel": ">50k 落盘 + 2KB 预览",
+      "pos": [
+        280,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/context/manager.py",
+          "line": 323,
+          "label": "len > SINGLE_RESULT_CHAR_LIMIT"
+        },
+        {
+          "path": "autocode/context/manager.py",
+          "line": 24,
+          "label": "SINGLE_RESULT_CHAR_LIMIT = 50_000"
+        }
+      ]
+    },
+    {
+      "id": "p2",
+      "type": "backend",
+      "label": "Pass 2 · 聚合超限",
+      "sublabel": ">200k 从最大开始落",
+      "pos": [
+        520,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/context/manager.py",
+          "line": 339,
+          "label": "total > AGGREGATE_CHAR_LIMIT"
+        },
+        {
+          "path": "autocode/context/manager.py",
+          "line": 25,
+          "label": "AGGREGATE_CHAR_LIMIT = 200_000"
+        },
+        {
+          "path": "autocode/context/manager.py",
+          "line": 340,
+          "label": "按长度倒序挑着落"
+        }
+      ]
+    },
+    {
+      "id": "p3",
+      "type": "backend",
+      "label": "Pass 3 · 陈旧裁剪",
+      "sublabel": "10 轮前裁成 200 字",
+      "pos": [
+        760,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "无状态",
+      "sources": [
+        {
+          "path": "autocode/context/manager.py",
+          "line": 373,
+          "label": "在新 history 上跑 Pass 3"
+        },
+        {
+          "path": "autocode/context/manager.py",
+          "line": 231,
+          "label": "_snip_stale_messages"
+        },
+        {
+          "path": "autocode/context/manager.py",
+          "line": 253,
+          "label": "已落盘 / 已裁剪的跳过"
+        }
+      ]
+    },
+    {
+      "id": "persist",
+      "type": "database",
+      "label": "persist_tool_result()",
+      "sublabel": "O_EXCL · 名 = tool_use_id",
+      "pos": [
+        40,
+        220
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "幂等",
+      "sources": [
+        {
+          "path": "autocode/context/manager.py",
+          "line": 186,
+          "label": "def persist_tool_result"
+        },
+        {
+          "path": "autocode/context/manager.py",
+          "line": 189,
+          "label": "O_WRONLY|O_CREAT|O_EXCL"
+        },
+        {
+          "path": "autocode/context/manager.py",
+          "line": 192,
+          "label": "FileExistsError 直接放行"
+        }
+      ]
+    },
+    {
+      "id": "preview",
+      "type": "backend",
+      "label": "make_persisted_preview()",
+      "sublabel": "2KB 预览 + 文件路径",
+      "pos": [
+        280,
+        220
+      ],
+      "size": [
+        170,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/context/manager.py",
+          "line": 197,
+          "label": "def make_persisted_preview"
+        },
+        {
+          "path": "autocode/context/manager.py",
+          "line": 26,
+          "label": "PREVIEW_CHARS = 2_000"
+        },
+        {
+          "path": "autocode/context/manager.py",
+          "line": 48,
+          "label": "PERSISTED_TAG 标签"
+        }
+      ]
+    },
+    {
+      "id": "records",
+      "type": "database",
+      "label": "替换记录落盘",
+      "sublabel": "replacement_records.jsonl",
+      "pos": [
+        560,
+        220
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/context/manager.py",
+          "line": 111,
+          "label": "append_replacement_records"
+        },
+        {
+          "path": "autocode/context/manager.py",
+          "line": 108,
+          "label": "记录文件名"
+        },
+        {
+          "path": "autocode/context/manager.py",
+          "line": 126,
+          "label": "load_replacement_records"
+        }
+      ]
+    },
+    {
+      "id": "token",
+      "type": "backend",
+      "label": "current_tokens()",
+      "sublabel": "真实锚点 + 尾部估算",
+      "pos": [
+        40,
+        360
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "估算策略",
+      "sources": [
+        {
+          "path": "autocode/conversation.py",
+          "line": 101,
+          "label": "def current_tokens"
+        },
+        {
+          "path": "autocode/conversation.py",
+          "line": 94,
+          "label": "baseline = input+cache+output"
+        },
+        {
+          "path": "autocode/conversation.py",
+          "line": 39,
+          "label": "字符 / token 比率 3.5"
+        }
+      ]
+    },
+    {
+      "id": "threshold",
+      "type": "backend",
+      "label": "压缩阈值",
+      "sublabel": "window − 20k − 13k",
+      "pos": [
+        280,
+        360
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "手动时边距 3k",
+      "sources": [
+        {
+          "path": "autocode/context/manager.py",
+          "line": 390,
+          "label": "compute_compact_threshold"
+        },
+        {
+          "path": "autocode/context/manager.py",
+          "line": 32,
+          "label": "SUMMARY_OUTPUT_RESERVE = 20_000"
+        },
+        {
+          "path": "autocode/context/manager.py",
+          "line": 33,
+          "label": "AUTO_COMPACT_SAFETY_MARGIN = 13_000"
+        }
+      ]
+    },
+    {
+      "id": "breaker",
+      "type": "backend",
+      "label": "熔断与退化",
+      "sublabel": "连 3 次失败开闸",
+      "pos": [
+        520,
+        360
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "两道保护",
+      "sources": [
+        {
+          "path": "autocode/context/manager.py",
+          "line": 706,
+          "label": "CompactCircuitBreaker"
+        },
+        {
+          "path": "autocode/context/manager.py",
+          "line": 718,
+          "label": "is_open()"
+        },
+        {
+          "path": "autocode/context/manager.py",
+          "line": 694,
+          "label": "前缀不足 2k token 不压"
+        }
+      ]
+    },
+    {
+      "id": "l2",
+      "type": "backend",
+      "label": "auto_compact",
+      "sublabel": "调模型出 <summary>",
+      "pos": [
+        760,
+        360
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "按阈值 · 调模型",
+      "sources": [
+        {
+          "path": "autocode/context/manager.py",
+          "line": 726,
+          "label": "async def auto_compact"
+        },
+        {
+          "path": "autocode/context/manager.py",
+          "line": 793,
+          "label": "client.stream 生成摘要"
+        },
+        {
+          "path": "autocode/context/manager.py",
+          "line": 803,
+          "label": "超限则丢掉 1/5 轮重试"
+        }
+      ]
+    },
+    {
+      "id": "keep",
+      "type": "backend",
+      "label": "保留尾部原文",
+      "sublabel": "≥10k token 或 ≥5 条",
+      "pos": [
+        1000,
+        360
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "上限 40k",
+      "sources": [
+        {
+          "path": "autocode/context/manager.py",
+          "line": 634,
+          "label": "_compute_keep_start_index"
+        },
+        {
+          "path": "autocode/context/manager.py",
+          "line": 40,
+          "label": "KEEP_RECENT_TOKENS = 10_000"
+        },
+        {
+          "path": "autocode/context/manager.py",
+          "line": 675,
+          "label": "对齐 tool 配对边界"
+        }
+      ]
+    },
+    {
+      "id": "cleanup",
+      "type": "backend",
+      "label": "cleanup_tool_results()",
+      "sublabel": "整目录删除",
+      "pos": [
+        520,
+        500
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "成功后清空",
+      "sources": [
+        {
+          "path": "autocode/context/manager.py",
+          "line": 176,
+          "label": "def cleanup_tool_results"
+        },
+        {
+          "path": "autocode/context/manager.py",
+          "line": 178,
+          "label": "shutil.rmtree 整个目录"
+        },
+        {
+          "path": "autocode/context/manager.py",
+          "line": 839,
+          "label": "replace_history 后调用"
+        }
+      ]
+    },
+    {
+      "id": "boundary",
+      "type": "database",
+      "label": "CompactBoundary",
+      "sublabel": "摘要 + 原样 keep 尾部",
+      "pos": [
+        760,
+        500
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "交 session 层",
+      "sources": [
+        {
+          "path": "autocode/context/manager.py",
+          "line": 58,
+          "label": "class CompactBoundary"
+        },
+        {
+          "path": "autocode/context/manager.py",
+          "line": 846,
+          "label": "return CompactEvent"
+        },
+        {
+          "path": "autocode/memory/session.py",
+          "line": 146,
+          "label": "make_compact_boundary"
+        }
+      ]
+    },
+    {
+      "id": "recovery",
+      "type": "backend",
+      "label": "恢复附件",
+      "sublabel": "文件快照 / 技能 / 工具表",
+      "pos": [
+        1000,
+        500
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/context/manager.py",
+          "line": 544,
+          "label": "build_recovery_attachment"
+        },
+        {
+          "path": "autocode/context/manager.py",
+          "line": 454,
+          "label": "最多 5 个文件快照"
+        },
+        {
+          "path": "autocode/context/manager.py",
+          "line": 456,
+          "label": "技能预算 25k token"
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "l1-p1",
+      "from": "l1",
+      "to": "p1",
+      "label": "先判单条",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "p1-p2",
+      "from": "p1",
+      "to": "p2",
+      "label": "再看聚合",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "p2-p3",
+      "from": "p2",
+      "to": "p3",
+      "label": "最后清陈旧",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "p1-persist",
+      "from": "p1",
+      "to": "persist",
+      "label": "超 50k 落盘",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        235,
+        169
+      ]
+    },
+    {
+      "id": "p2-persist",
+      "from": "p2",
+      "to": "persist",
+      "label": "超 200k 落盘",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        355,
+        201
+      ]
+    },
+    {
+      "id": "persist-preview",
+      "from": "persist",
+      "to": "preview",
+      "label": "渲染预览",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "preview-records",
+      "from": "preview",
+      "to": "records",
+      "label": "记一条替换",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "token-threshold",
+      "from": "token",
+      "to": "threshold",
+      "label": "比阈值",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "threshold-breaker",
+      "from": "threshold",
+      "to": "breaker",
+      "label": "超了",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "breaker-l2",
+      "from": "breaker",
+      "to": "l2",
+      "label": "未熔断",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "l2-keep",
+      "from": "l2",
+      "to": "keep",
+      "label": "划保留窗口",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "l2-cleanup",
+      "from": "l2",
+      "to": "cleanup",
+      "label": "成功后清空",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        715,
+        465
+      ]
+    },
+    {
+      "id": "l2-boundary",
+      "from": "l2",
+      "to": "boundary",
+      "label": "结构化产出",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        835,
+        481
+      ]
+    },
+    {
+      "id": "keep-recovery",
+      "from": "keep",
+      "to": "recovery",
+      "label": "快照与技能",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        1075,
+        481
+      ]
+    },
+    {
+      "id": "recovery-boundary",
+      "from": "recovery",
+      "to": "boundary",
+      "label": "并入摘要消息",
+      "variant": "dashed",
+      "fromSide": "left",
+      "toSide": "right"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "两条路径，两套触发",
+      "items": [
+        "Layer 1 每轮都跑，纯本地不调模型：三趟各自独立，只看字符数",
+        "Layer 2 按 token 阈值触发，要花一次模型调用生成结构化摘要",
+        "两者共用同一个落盘函数与同一个 session 目录——一套机制两个入口"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "阈值与估算怎么来的",
+      "items": [
+        "阈值 = 上下文窗口 − 20k 摘要预留 − 13k 自动安全边距（手动压缩时边距 3k）",
+        "判定用 current_tokens()：以上一轮 API 真实用量为锚点，只估算之后新增的部分",
+        "两道保护：连续 3 次摘要失败即熔断；待摘要前缀不足 2k token 直接跳过"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "压缩之后要收拾两件事",
+      "items": [
+        "历史被 replace_history 整体换掉，用量锚点与注入标志一起清零，下一轮重新锚定",
+        "落盘目录被整目录删除——旧文件已无引用，模型的引用也随旧历史一起消失",
+        "保留的尾部按 tool_use / tool_result 配对对齐，宁可多留一对也不留半对"
+      ]
+    }
+  ]
+}

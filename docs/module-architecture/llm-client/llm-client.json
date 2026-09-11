@@ -1,0 +1,536 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "LLM 客户端 工作机制",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/xls0Jacker/MiniAgent",
+      "revision": "d1d07182cda2695d8bc6b98fd01249a1b93a5911"
+    },
+    "views": [
+      {
+        "id": "dispatch",
+        "label": "协议分发",
+        "focus": [
+          "cfg",
+          "factory",
+          "abc",
+          "impls"
+        ],
+        "note": "一个抽象基类、三个实现，按 config.protocol 在 create_client() 里分流。"
+      },
+      {
+        "id": "proto-diff",
+        "label": "协议差异",
+        "focus": [
+          "impls",
+          "cache",
+          "convert"
+        ],
+        "note": "三家的 API 形态各不相同，差异集中在两处：缓存断点与 tool schema 形状。"
+      },
+      {
+        "id": "response",
+        "label": "响应归一",
+        "focus": [
+          "sdk",
+          "events",
+          "normalize",
+          "collector"
+        ],
+        "note": "SDK 原生事件先翻译成 7 种 StreamEvent，再归一用量与异常，最后聚合。"
+      },
+      {
+        "id": "deliver",
+        "label": "聚合交付",
+        "focus": [
+          "collector",
+          "llmresp",
+          "agentev"
+        ],
+        "note": "一次流式响应同时产出两个东西：整包 LLMResponse 与逐条 AgentEvent 旁路。"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "cfg",
+      "type": "backend",
+      "label": "ProviderConfig",
+      "sublabel": "protocol · model · api_key",
+      "pos": [
+        40,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/client.py",
+          "line": 560,
+          "label": "create_client(config)"
+        },
+        {
+          "path": "autocode/client.py",
+          "line": 129,
+          "label": "config.get_max_output_tokens()"
+        }
+      ]
+    },
+    {
+      "id": "factory",
+      "type": "backend",
+      "label": "create_client()",
+      "sublabel": "按 protocol 三分支",
+      "pos": [
+        280,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "唯一入口",
+      "sources": [
+        {
+          "path": "autocode/client.py",
+          "line": 560,
+          "label": "def create_client"
+        },
+        {
+          "path": "autocode/client.py",
+          "line": 567,
+          "label": "未知 protocol 直接报错"
+        }
+      ]
+    },
+    {
+      "id": "abc",
+      "type": "backend",
+      "label": "LLMClient (ABC)",
+      "sublabel": "stream() 是唯一抽象",
+      "pos": [
+        520,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/client.py",
+          "line": 102,
+          "label": "class LLMClient(ABC)"
+        },
+        {
+          "path": "autocode/client.py",
+          "line": 103,
+          "label": "abstractmethod stream()"
+        }
+      ]
+    },
+    {
+      "id": "impls",
+      "type": "backend",
+      "label": "三个协议实现",
+      "sublabel": "Messages · Responses · Chat",
+      "pos": [
+        760,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "同名不同做",
+      "sources": [
+        {
+          "path": "autocode/client.py",
+          "line": 125,
+          "label": "AnthropicClient"
+        },
+        {
+          "path": "autocode/client.py",
+          "line": 285,
+          "label": "OpenAIClient"
+        },
+        {
+          "path": "autocode/client.py",
+          "line": 400,
+          "label": "OpenAICompatClient"
+        }
+      ]
+    },
+    {
+      "id": "sdk",
+      "type": "backend",
+      "label": "SDK 原生事件流",
+      "sublabel": "async for event",
+      "pos": [
+        1000,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/client.py",
+          "line": 208,
+          "label": "messages.stream(**kwargs)"
+        },
+        {
+          "path": "autocode/client.py",
+          "line": 326,
+          "label": "responses 流迭代"
+        },
+        {
+          "path": "autocode/client.py",
+          "line": 480,
+          "label": "chat.completions 流迭代"
+        }
+      ]
+    },
+    {
+      "id": "cache",
+      "type": "backend",
+      "label": "prompt cache 断点",
+      "sublabel": "system · tools · user 尾",
+      "pos": [
+        40,
+        220
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "仅 Anthropic",
+      "sources": [
+        {
+          "path": "autocode/client.py",
+          "line": 38,
+          "label": "给最后一条 user 消息尾部打标"
+        },
+        {
+          "path": "autocode/client.py",
+          "line": 66,
+          "label": "给最后一个 tool 打标"
+        },
+        {
+          "path": "autocode/client.py",
+          "line": 189,
+          "label": "tools 走 _mark_last_tool_for_cache"
+        }
+      ]
+    },
+    {
+      "id": "convert",
+      "type": "backend",
+      "label": "tool schema 转换",
+      "sublabel": "扁平 → function 嵌套",
+      "pos": [
+        280,
+        220
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "仅 Compat",
+      "sources": [
+        {
+          "path": "autocode/client.py",
+          "line": 423,
+          "label": "_convert_tools"
+        },
+        {
+          "path": "autocode/client.py",
+          "line": 472,
+          "label": "转换后才挂进 kwargs"
+        }
+      ]
+    },
+    {
+      "id": "events",
+      "type": "backend",
+      "label": "StreamEvent 事件流",
+      "sublabel": "7 种统一事件",
+      "pos": [
+        280,
+        360
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "适配层",
+      "sources": [
+        {
+          "path": "autocode/tools/base.py",
+          "line": 52,
+          "label": "TextDelta 等事件定义"
+        },
+        {
+          "path": "autocode/tools/base.py",
+          "line": 101,
+          "label": "StreamEvent 联合类型"
+        }
+      ]
+    },
+    {
+      "id": "normalize",
+      "type": "backend",
+      "label": "用量与异常归一",
+      "sublabel": "可加性 · 四类错误",
+      "pos": [
+        520,
+        360
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/client.py",
+          "line": 372,
+          "label": "OpenAI：input 减去 cached"
+        },
+        {
+          "path": "autocode/client.py",
+          "line": 484,
+          "label": "Compat：prompt 减去 cached"
+        },
+        {
+          "path": "autocode/client.py",
+          "line": 271,
+          "label": "四类异常映射为 LLMError"
+        }
+      ]
+    },
+    {
+      "id": "collector",
+      "type": "backend",
+      "label": "StreamCollector",
+      "sublabel": "聚合成 LLMResponse",
+      "pos": [
+        760,
+        360
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "边聚合边外抛",
+      "sources": [
+        {
+          "path": "autocode/agent.py",
+          "line": 190,
+          "label": "class StreamCollector"
+        },
+        {
+          "path": "autocode/agent.py",
+          "line": 194,
+          "label": "consume() 迭代事件流"
+        }
+      ]
+    },
+    {
+      "id": "llmresp",
+      "type": "database",
+      "label": "LLMResponse",
+      "sublabel": "text · thinking · tool_calls",
+      "pos": [
+        760,
+        500
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/agent.py",
+          "line": 179,
+          "label": "class LLMResponse"
+        },
+        {
+          "path": "autocode/agent.py",
+          "line": 212,
+          "label": "tool_calls 累积进 response"
+        }
+      ]
+    },
+    {
+      "id": "agentev",
+      "type": "backend",
+      "label": "AgentEvent 旁路",
+      "sublabel": "StreamText / ToolUseEvent",
+      "pos": [
+        1000,
+        500
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "TUI 直接消费",
+      "sources": [
+        {
+          "path": "autocode/agent.py",
+          "line": 200,
+          "label": "yield StreamText"
+        },
+        {
+          "path": "autocode/agent.py",
+          "line": 213,
+          "label": "yield ToolUseEvent"
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "cfg-factory",
+      "from": "cfg",
+      "to": "factory",
+      "label": "protocol",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "factory-abc",
+      "from": "factory",
+      "to": "abc",
+      "label": "构造",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "abc-impls",
+      "from": "abc",
+      "to": "impls",
+      "label": "三实现",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "impls-sdk",
+      "from": "impls",
+      "to": "sdk",
+      "label": "调用",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "impls-cache",
+      "from": "impls",
+      "to": "cache",
+      "label": "cache 断点",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        240,
+        169
+      ]
+    },
+    {
+      "id": "impls-convert",
+      "from": "impls",
+      "to": "convert",
+      "label": "schema 重排",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        700,
+        201
+      ]
+    },
+    {
+      "id": "sdk-events",
+      "from": "sdk",
+      "to": "events",
+      "label": "翻译成统一事件",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        715,
+        255
+      ]
+    },
+    {
+      "id": "events-normalize",
+      "from": "events",
+      "to": "normalize",
+      "label": "逐事件",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "normalize-collector",
+      "from": "normalize",
+      "to": "collector",
+      "label": "喂入",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "collector-llmresp",
+      "from": "collector",
+      "to": "llmresp",
+      "label": "整包",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        835,
+        465
+      ]
+    },
+    {
+      "id": "collector-agentev",
+      "from": "collector",
+      "to": "agentev",
+      "label": "逐条旁路",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "top"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "三家客户端，一套事件",
+      "items": [
+        "create_client() 按 config.protocol 分三支",
+        "三家 API 形态完全不同：Messages / Responses / Chat Completions",
+        "但都翻译成同一组 7 种 StreamEvent，差异全收敛在 client.py 内"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "归一化做在两处",
+      "items": [
+        "用量：OpenAI 系的 input_tokens 含缓存 token，减掉 cached 才有可加性",
+        "异常：鉴权 / 限流（带 retry_after）/ 网络 / 状态码四类统一成 LLMError 家族",
+        "形状：Compat 还要把扁平 schema 重排成 function 嵌套"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "缓存断点打在哪",
+      "items": [
+        "Anthropic 缓存按前缀命中，断点只打在最长的稳定前缀尾部",
+        "三处：system、tools 尾部、最后一条 user 消息尾部",
+        "故 tool_result 必须逐字节稳定——由 ContentReplacementState 保证"
+      ]
+    }
+  ]
+}

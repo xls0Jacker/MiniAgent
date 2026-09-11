@@ -1,0 +1,489 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "System Prompt 组装 工作机制",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/xls0Jacker/MiniAgent",
+      "revision": "d1d07182cda2695d8bc6b98fd01249a1b93a5911"
+    },
+    "views": [
+      {
+        "id": "system-path",
+        "label": "system 参数路径",
+        "focus": [
+          "sys_sections",
+          "env_sec",
+          "hooks_sec",
+          "slots",
+          "builder",
+          "system"
+        ],
+        "note": "四路来源汇进 PromptBuilder，按 priority 排序拼成发给 LLM 的 system 字符串。"
+      },
+      {
+        "id": "history-path",
+        "label": "历史消息路径",
+        "focus": [
+          "inject_env",
+          "inject_ltm",
+          "reminder",
+          "api_conv"
+        ],
+        "note": "环境、记忆、提醒都不在 system 里——它们是注入到历史中的 user 消息。"
+      },
+      {
+        "id": "converge",
+        "label": "两路汇合",
+        "focus": [
+          "system",
+          "api_conv",
+          "stream"
+        ],
+        "note": "system 走参数，api_conv 走历史，两者在 client.stream() 汇合。"
+      },
+      {
+        "id": "reinject",
+        "label": "压缩后重注入",
+        "focus": [
+          "reinject",
+          "inject_env",
+          "inject_ltm"
+        ],
+        "note": "压缩会重写历史、清掉注入，所以压缩后立刻把环境与记忆重新灌一遍。"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "sys_sections",
+      "type": "backend",
+      "label": "8 个内置分段",
+      "sublabel": "Identity 0 → TextOutput 60",
+      "pos": [
+        40,
+        60
+      ],
+      "size": [
+        160,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/prompts.py",
+          "line": 37,
+          "label": "IDENTITY_SECTION priority=0"
+        },
+        {
+          "path": "autocode/prompts.py",
+          "line": 130,
+          "label": "TEXT_OUTPUT_SECTION priority=60"
+        }
+      ]
+    },
+    {
+      "id": "env_sec",
+      "type": "backend",
+      "label": "Environment 段",
+      "sublabel": "工作目录 / 平台 / 日期",
+      "pos": [
+        400,
+        60
+      ],
+      "size": [
+        160,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/prompts.py",
+          "line": 148,
+          "label": "environment_section priority=70"
+        }
+      ]
+    },
+    {
+      "id": "hooks_sec",
+      "type": "backend",
+      "label": "Hook 注入段",
+      "sublabel": "Hook Injected Context",
+      "pos": [
+        760,
+        60
+      ],
+      "size": [
+        160,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/prompts.py",
+          "line": 265,
+          "label": "追加 hook prompts"
+        }
+      ]
+    },
+    {
+      "id": "slots",
+      "type": "backend",
+      "label": "三个可选槽位",
+      "sublabel": "指令 80 / 技能 90 / 记忆 95",
+      "pos": [
+        1120,
+        60
+      ],
+      "size": [
+        160,
+        70
+      ],
+      "tag": "agent 未传",
+      "sources": [
+        {
+          "path": "autocode/prompts.py",
+          "line": 250,
+          "label": "CustomInstructions priority=80"
+        },
+        {
+          "path": "autocode/prompts.py",
+          "line": 260,
+          "label": "Memory priority=95"
+        },
+        {
+          "path": "autocode/agent.py",
+          "line": 487,
+          "label": "调用点只传 hook_prompts"
+        }
+      ]
+    },
+    {
+      "id": "builder",
+      "type": "backend",
+      "label": "PromptBuilder",
+      "sublabel": "按 priority 排序拼接",
+      "pos": [
+        580,
+        180
+      ],
+      "size": [
+        160,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/prompts.py",
+          "line": 17,
+          "label": "class PromptBuilder"
+        },
+        {
+          "path": "autocode/prompts.py",
+          "line": 27,
+          "label": "build() 排序后 join"
+        }
+      ]
+    },
+    {
+      "id": "reinject",
+      "type": "backend",
+      "label": "压缩后重注入",
+      "sublabel": "仅压缩真的发生时",
+      "pos": [
+        40,
+        300
+      ],
+      "size": [
+        160,
+        70
+      ],
+      "tag": "关键补偿",
+      "sources": [
+        {
+          "path": "autocode/agent.py",
+          "line": 470,
+          "label": "压缩后重新注入环境"
+        },
+        {
+          "path": "autocode/agent.py",
+          "line": 472,
+          "label": "重新注入长程记忆"
+        }
+      ]
+    },
+    {
+      "id": "system",
+      "type": "backend",
+      "label": "system 参数",
+      "sublabel": "8 段 + Hook 段",
+      "pos": [
+        580,
+        300
+      ],
+      "size": [
+        160,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/agent.py",
+          "line": 487,
+          "label": "每轮组装 system"
+        }
+      ]
+    },
+    {
+      "id": "inject_env",
+      "type": "database",
+      "label": "环境上下文注入",
+      "sublabel": "insert(0) · 只插一次",
+      "pos": [
+        40,
+        405
+      ],
+      "size": [
+        160,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/conversation.py",
+          "line": 145,
+          "label": "inject_environment"
+        },
+        {
+          "path": "autocode/prompts.py",
+          "line": 271,
+          "label": "build_environment_context"
+        }
+      ]
+    },
+    {
+      "id": "inject_ltm",
+      "type": "database",
+      "label": "长程记忆注入",
+      "sublabel": "插在环境之后（pos 1）",
+      "pos": [
+        400,
+        405
+      ],
+      "size": [
+        160,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/conversation.py",
+          "line": 150,
+          "label": "inject_long_term_memory"
+        }
+      ]
+    },
+    {
+      "id": "reminder",
+      "type": "database",
+      "label": "系统提醒追加",
+      "sublabel": "system-reminder 消息",
+      "pos": [
+        760,
+        405
+      ],
+      "size": [
+        160,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/conversation.py",
+          "line": 131,
+          "label": "add_system_reminder"
+        },
+        {
+          "path": "autocode/agent.py",
+          "line": 497,
+          "label": "plan 模式提醒"
+        },
+        {
+          "path": "autocode/agent.py",
+          "line": 507,
+          "label": "延迟工具提醒"
+        }
+      ]
+    },
+    {
+      "id": "api_conv",
+      "type": "database",
+      "label": "api_conv 历史",
+      "sublabel": "每轮变化的部分",
+      "pos": [
+        400,
+        570
+      ],
+      "size": [
+        160,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/agent.py",
+          "line": 519,
+          "label": "预算后得到 api_conv"
+        }
+      ]
+    },
+    {
+      "id": "stream",
+      "type": "external",
+      "label": "client.stream()",
+      "sublabel": "system + 历史 + tools",
+      "pos": [
+        1120,
+        570
+      ],
+      "size": [
+        160,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/agent.py",
+          "line": 526,
+          "label": "发起流式调用"
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "sections-builder",
+      "from": "sys_sections",
+      "to": "builder",
+      "label": "8 段",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "envsec-builder",
+      "from": "env_sec",
+      "to": "builder",
+      "label": "priority 70",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "hooks-builder",
+      "from": "hooks_sec",
+      "to": "builder",
+      "label": "追加末尾",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "slots-builder",
+      "from": "slots",
+      "to": "builder",
+      "label": "槽位空",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "builder-system",
+      "from": "builder",
+      "to": "system",
+      "label": "拼接结果",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        660,
+        268
+      ]
+    },
+    {
+      "id": "reinject-env",
+      "from": "reinject",
+      "to": "inject_env",
+      "label": "重新注入",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        120,
+        381
+      ]
+    },
+    {
+      "id": "env-apiconv",
+      "from": "inject_env",
+      "to": "api_conv",
+      "label": "首位",
+      "fromSide": "bottom",
+      "toSide": "left"
+    },
+    {
+      "id": "ltm-apiconv",
+      "from": "inject_ltm",
+      "to": "api_conv",
+      "label": "环境之后",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        480,
+        505
+      ]
+    },
+    {
+      "id": "reminder-apiconv",
+      "from": "reminder",
+      "to": "api_conv",
+      "label": "追加",
+      "fromSide": "bottom",
+      "toSide": "right"
+    },
+    {
+      "id": "system-stream",
+      "from": "system",
+      "to": "stream",
+      "label": "system 参数",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "apiconv-stream",
+      "from": "api_conv",
+      "to": "stream",
+      "label": "历史消息",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "两条路径，不是一个",
+      "items": [
+        "system 参数：内置分段按 priority 0→70 排序拼接，每轮内容固定",
+        "历史消息：环境上下文、长程记忆、系统提醒都是注入的 user 消息",
+        "两者在 client.stream() 汇合——system 走参数，其余走历史"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "priority 阶梯",
+      "items": [
+        "Identity 0 → System 10 → DoingTasks 20 → ExecutingActions 30",
+        "→ UsingTools 40 → ToneStyle 50 → TextOutput 60 → Environment 70",
+        "80 / 90 / 95 留给项目指令、技能、记忆，agent 路径上为空"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "注入为什么要重灌一次",
+      "items": [
+        "inject_environment 用 insert(0) 插到历史最前，且只插一次",
+        "压缩会重写历史，把环境与记忆注入一并清掉",
+        "所以 auto_compact 之后代码立刻重新注入环境与记忆"
+      ]
+    }
+  ]
+}

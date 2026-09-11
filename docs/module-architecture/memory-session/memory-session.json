@@ -1,0 +1,810 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Session 与记忆 工作机制",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/xls0Jacker/MiniAgent",
+      "revision": "d1d07182cda2695d8bc6b98fd01249a1b93a5911"
+    },
+    "views": [
+      {
+        "id": "persist",
+        "label": "落盘",
+        "focus": [
+          "append",
+          "rectype",
+          "frommsg",
+          "jsonl",
+          "meta"
+        ],
+        "note": "一条消息拆成若干条记录逐行追加；assistant 的 tool_use、每个 tool_result 各占一条。"
+      },
+      {
+        "id": "resume",
+        "label": "恢复",
+        "focus": [
+          "jsonl",
+          "resume",
+          "boundary",
+          "validate",
+          "tomessages"
+        ],
+        "note": "先定位最后一个压缩边界，再截到最后一个配对完整点，最后归组成消息。"
+      },
+      {
+        "id": "extract",
+        "label": "记忆抽取",
+        "focus": [
+          "extract",
+          "classify",
+          "write",
+          "mdfiles"
+        ],
+        "note": "只处理上次之后的新消息，四栏输出按栏路由到用户级与项目级两份文件。"
+      },
+      {
+        "id": "recall",
+        "label": "记忆召回",
+        "focus": [
+          "mdfiles",
+          "scan",
+          "selector",
+          "render",
+          "stale",
+          "inject"
+        ],
+        "note": "扫出 frontmatter 清单让模型挑，挑中后读全文拼成带年龄戳的 system-reminder。"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "append",
+      "type": "backend",
+      "label": "Session.append()",
+      "sublabel": "写一行就 flush",
+      "pos": [
+        40,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/memory/session.py",
+          "line": 371,
+          "label": "def append"
+        },
+        {
+          "path": "autocode/memory/session.py",
+          "line": 374,
+          "label": "逐条写 JSONL 并 flush"
+        },
+        {
+          "path": "autocode/memory/session.py",
+          "line": 383,
+          "label": "顺手更新 meta"
+        }
+      ]
+    },
+    {
+      "id": "rectype",
+      "type": "backend",
+      "label": "RecordType",
+      "sublabel": "6 种记录类型",
+      "pos": [
+        280,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/memory/session.py",
+          "line": 29,
+          "label": "class RecordType"
+        },
+        {
+          "path": "autocode/memory/session.py",
+          "line": 33,
+          "label": "ASSISTANT"
+        },
+        {
+          "path": "autocode/memory/session.py",
+          "line": 39,
+          "label": "COMPACT_BOUNDARY"
+        }
+      ]
+    },
+    {
+      "id": "frommsg",
+      "type": "backend",
+      "label": "from_message()",
+      "sublabel": "一条消息拆成多条记录",
+      "pos": [
+        520,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/memory/session.py",
+          "line": 78,
+          "label": "SessionRecord.from_message"
+        },
+        {
+          "path": "autocode/memory/session.py",
+          "line": 82,
+          "label": "每个 tool_result 独立成条"
+        },
+        {
+          "path": "autocode/memory/session.py",
+          "line": 94,
+          "label": "tool_use 变成 content 块"
+        }
+      ]
+    },
+    {
+      "id": "jsonl",
+      "type": "database",
+      "label": "{session_id}.jsonl",
+      "sublabel": "追加写 · 每行一条",
+      "pos": [
+        760,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/memory/session.py",
+          "line": 472,
+          "label": "jsonl 文件路径"
+        },
+        {
+          "path": "autocode/memory/session.py",
+          "line": 476,
+          "label": "以 append 模式打开"
+        },
+        {
+          "path": "autocode/memory/session.py",
+          "line": 14,
+          "label": ".autocode/sessions 目录"
+        }
+      ]
+    },
+    {
+      "id": "meta",
+      "type": "backend",
+      "label": "SessionMeta",
+      "sublabel": "标题 · 轮数 · token",
+      "pos": [
+        1000,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/memory/session.py",
+          "line": 313,
+          "label": "class SessionMeta"
+        },
+        {
+          "path": "autocode/memory/session.py",
+          "line": 380,
+          "label": "首条 user 消息当标题"
+        },
+        {
+          "path": "autocode/memory/session.py",
+          "line": 491,
+          "label": "列表按最近活跃倒序"
+        }
+      ]
+    },
+    {
+      "id": "resume",
+      "type": "backend",
+      "label": "SessionManager.resume()",
+      "sublabel": "全量读行后重建",
+      "pos": [
+        280,
+        220
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/memory/session.py",
+          "line": 494,
+          "label": "def resume"
+        },
+        {
+          "path": "autocode/memory/session.py",
+          "line": 506,
+          "label": "逐行解析成记录"
+        },
+        {
+          "path": "autocode/memory/session.py",
+          "line": 526,
+          "label": "先校验再截断"
+        }
+      ]
+    },
+    {
+      "id": "boundary",
+      "type": "backend",
+      "label": "只看最后一个边界",
+      "sublabel": "之前的前缀不回放",
+      "pos": [
+        520,
+        220
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "压缩后的捷径",
+      "sources": [
+        {
+          "path": "autocode/memory/session.py",
+          "line": 519,
+          "label": "扫出最后一个 boundary"
+        },
+        {
+          "path": "autocode/memory/session.py",
+          "line": 524,
+          "label": "记录从它开始截取"
+        },
+        {
+          "path": "autocode/memory/session.py",
+          "line": 146,
+          "label": "boundary 内联摘要 + 尾部"
+        }
+      ]
+    },
+    {
+      "id": "validate",
+      "type": "security",
+      "label": "validate_message_chain",
+      "sublabel": "截到最后一个完整配对",
+      "pos": [
+        760,
+        220
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "防半对",
+      "sources": [
+        {
+          "path": "autocode/memory/session.py",
+          "line": 286,
+          "label": "def validate_message_chain"
+        },
+        {
+          "path": "autocode/memory/session.py",
+          "line": 298,
+          "label": "tool_result 消掉 pending"
+        },
+        {
+          "path": "autocode/memory/session.py",
+          "line": 304,
+          "label": "返回最后一个完整下标"
+        }
+      ]
+    },
+    {
+      "id": "tomessages",
+      "type": "backend",
+      "label": "records_to_messages()",
+      "sublabel": "记录归组回消息",
+      "pos": [
+        1000,
+        220
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/memory/session.py",
+          "line": 199,
+          "label": "def records_to_messages"
+        },
+        {
+          "path": "autocode/memory/session.py",
+          "line": 218,
+          "label": "连续 tool_result 并成一条"
+        },
+        {
+          "path": "autocode/memory/session.py",
+          "line": 236,
+          "label": "boundary 展开成摘要 + 尾部"
+        }
+      ]
+    },
+    {
+      "id": "extract",
+      "type": "backend",
+      "label": "MemoryManager.extract()",
+      "sublabel": "只喂新消息给模型",
+      "pos": [
+        40,
+        360
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "轮末触发",
+      "sources": [
+        {
+          "path": "autocode/memory/auto_memory.py",
+          "line": 94,
+          "label": "async def extract"
+        },
+        {
+          "path": "autocode/memory/auto_memory.py",
+          "line": 104,
+          "label": "只取计数之后的消息"
+        },
+        {
+          "path": "autocode/memory/auto_memory.py",
+          "line": 142,
+          "label": "成功后推进计数"
+        }
+      ]
+    },
+    {
+      "id": "classify",
+      "type": "backend",
+      "label": "四栏路由",
+      "sublabel": "偏好 / 纠正 → 用户级",
+      "pos": [
+        280,
+        360
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "另两栏 → 项目级",
+      "sources": [
+        {
+          "path": "autocode/memory/auto_memory.py",
+          "line": 39,
+          "label": "用户级栏目名"
+        },
+        {
+          "path": "autocode/memory/auto_memory.py",
+          "line": 40,
+          "label": "项目级栏目名"
+        },
+        {
+          "path": "autocode/memory/auto_memory.py",
+          "line": 204,
+          "label": "按栏目名路由"
+        }
+      ]
+    },
+    {
+      "id": "write",
+      "type": "backend",
+      "label": "_write_memories()",
+      "sublabel": "占位行会被丢掉",
+      "pos": [
+        520,
+        360
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/memory/auto_memory.py",
+          "line": 150,
+          "label": "def _write_memories"
+        },
+        {
+          "path": "autocode/memory/auto_memory.py",
+          "line": 186,
+          "label": "_is_placeholder 过滤"
+        },
+        {
+          "path": "autocode/memory/auto_memory.py",
+          "line": 198,
+          "label": "只留真正的条目行"
+        }
+      ]
+    },
+    {
+      "id": "mdfiles",
+      "type": "database",
+      "label": "两份记忆文件",
+      "sublabel": "用户级 + 项目级",
+      "pos": [
+        760,
+        360
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/memory/auto_memory.py",
+          "line": 8,
+          "label": "用户级 ~/.autocode/memories.md"
+        },
+        {
+          "path": "autocode/memory/auto_memory.py",
+          "line": 9,
+          "label": "项目级 .autocode/memories.md"
+        },
+        {
+          "path": "autocode/memory/instructions.py",
+          "line": 49,
+          "label": "另有 AUTOCODE.md 指令文件"
+        }
+      ]
+    },
+    {
+      "id": "scan",
+      "type": "backend",
+      "label": "scan_memory_files()",
+      "sublabel": "按 mtime 倒序 · 上限 200",
+      "pos": [
+        40,
+        500
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/memory/recall.py",
+          "line": 142,
+          "label": "def scan_memory_files"
+        },
+        {
+          "path": "autocode/memory/recall.py",
+          "line": 153,
+          "label": "排除入口文件 MEMORY.md"
+        },
+        {
+          "path": "autocode/memory/recall.py",
+          "line": 166,
+          "label": "截到 MAX_MEMORY_FILES"
+        }
+      ]
+    },
+    {
+      "id": "selector",
+      "type": "backend",
+      "label": "模型选片",
+      "sublabel": "最多 5 个 · 不确定不选",
+      "pos": [
+        280,
+        500
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "尽力而为",
+      "sources": [
+        {
+          "path": "autocode/memory/recall.py",
+          "line": 234,
+          "label": "find_relevant_memories"
+        },
+        {
+          "path": "autocode/memory/recall.py",
+          "line": 23,
+          "label": "选择器系统提示词"
+        },
+        {
+          "path": "autocode/memory/recall.py",
+          "line": 313,
+          "label": "容忍围栏与散文的 JSON 提取"
+        }
+      ]
+    },
+    {
+      "id": "render",
+      "type": "backend",
+      "label": "render_reminder()",
+      "sublabel": "读全文拼成提醒",
+      "pos": [
+        520,
+        500
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/memory/recall.py",
+          "line": 333,
+          "label": "def render_reminder"
+        },
+        {
+          "path": "autocode/memory/recall.py",
+          "line": 344,
+          "label": "读选中文件全文"
+        },
+        {
+          "path": "autocode/memory/recall.py",
+          "line": 348,
+          "label": "标题带保存年龄"
+        }
+      ]
+    },
+    {
+      "id": "stale",
+      "type": "backend",
+      "label": "陈旧警告",
+      "sublabel": "超过 1 天就提示可能过期",
+      "pos": [
+        760,
+        500
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/memory/recall.py",
+          "line": 87,
+          "label": "memory_freshness_text"
+        },
+        {
+          "path": "autocode/memory/recall.py",
+          "line": 71,
+          "label": "memory_age_days"
+        },
+        {
+          "path": "autocode/memory/recall.py",
+          "line": 19,
+          "label": "四种合法 type"
+        }
+      ]
+    },
+    {
+      "id": "inject",
+      "type": "backend",
+      "label": "注入点",
+      "sublabel": "作为 user 消息追加",
+      "pos": [
+        1000,
+        500
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "超时即放弃",
+      "sources": [
+        {
+          "path": "autocode/app.py",
+          "line": 1074,
+          "label": "add_system_reminder"
+        },
+        {
+          "path": "autocode/app.py",
+          "line": 1046,
+          "label": "发送前预取召回"
+        },
+        {
+          "path": "autocode/app.py",
+          "line": 1025,
+          "label": "预取 8s 超时"
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "append-rectype",
+      "from": "append",
+      "to": "rectype",
+      "label": "拆成记录",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "rectype-frommsg",
+      "from": "rectype",
+      "to": "frommsg",
+      "label": "按类型映射",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "frommsg-jsonl",
+      "from": "frommsg",
+      "to": "jsonl",
+      "label": "逐行追加",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "jsonl-meta",
+      "from": "jsonl",
+      "to": "meta",
+      "label": "同步元数据",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "append-extract",
+      "from": "append",
+      "to": "extract",
+      "label": "轮末触发抽取",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        115,
+        255
+      ]
+    },
+    {
+      "id": "jsonl-resume",
+      "from": "jsonl",
+      "to": "resume",
+      "label": "读回",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        595,
+        185
+      ]
+    },
+    {
+      "id": "resume-boundary",
+      "from": "resume",
+      "to": "boundary",
+      "label": "定位边界",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "boundary-validate",
+      "from": "boundary",
+      "to": "validate",
+      "label": "再截断",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "validate-tomessages",
+      "from": "validate",
+      "to": "tomessages",
+      "label": "归组回消息",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "extract-classify",
+      "from": "extract",
+      "to": "classify",
+      "label": "四栏输出",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "classify-write",
+      "from": "classify",
+      "to": "write",
+      "label": "分头落盘",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "write-mdfiles",
+      "from": "write",
+      "to": "mdfiles",
+      "label": "写入两份",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "mdfiles-scan",
+      "from": "mdfiles",
+      "to": "scan",
+      "label": "扫描 .md 清单",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        475,
+        465
+      ]
+    },
+    {
+      "id": "scan-selector",
+      "from": "scan",
+      "to": "selector",
+      "label": "给清单",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "selector-render",
+      "from": "selector",
+      "to": "render",
+      "label": "取全文",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "render-stale",
+      "from": "render",
+      "to": "stale",
+      "label": "附年龄戳",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "stale-inject",
+      "from": "stale",
+      "to": "inject",
+      "label": "拼成提醒",
+      "fromSide": "right",
+      "toSide": "left"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "落盘是拆，恢复是拼",
+      "items": [
+        "带 tool_use 的 assistant 消息被拆成「文本块 + 每个 tool_use 一块」一条记录",
+        "每个 tool_result 也独立成一条记录，靠 tool_use_id 与上面配对",
+        "恢复时先归组再校验：tool_result 配不上 tool_use 的尾部整段丢弃"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "恢复只看最后一个边界",
+      "items": [
+        "COMPACT_BOUNDARY 内联了摘要与原样保留的尾部，压缩前的原始前缀不必回放",
+        "前缀仍留在 jsonl 里供审计，只是不再参与重建",
+        "没有 boundary 的旧会话走全量回放，行为与从前一致"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "记忆是两套，不是一套",
+      "items": [
+        "抽取：轮末把新对话喂给模型，输出四栏，按栏路由到用户级 / 项目级两份 memories.md",
+        "召回：发送前扫 frontmatter 清单让模型挑最多 5 个，再读全文拼成 system-reminder",
+        "召回尽力而为：选择器失败或超时（预取 8s、收集 3s）都静默返回空，绝不阻塞主流程"
+      ]
+    }
+  ]
+}

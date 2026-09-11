@@ -129,7 +129,7 @@ system = build_system_prompt(hook_prompts=hook_prompts)
 - 整文件（含 prompt 相关）：`uv run python -m pytest tests/test_agent.py -q`（存量失败见下）
 
 **需要知道：**
-- `docs/测试说明.md` 是全部测试的入口与总表，可反查任意模块。
+- `docs/testing.md` 是全部测试的入口与总表，可反查任意模块。
 - `test_agent.py` 中 prompt 相关用例全部通过；`test_multi_step_autonomous` 与
   `test_message_splicing` 为**存量差异，不修**，与本小节无关。
 - 每段 system prompt 的「实际措辞」对模型行为的长期影响不在 mock 测试范围，需真实 LLM

@@ -147,7 +147,7 @@ assistant: 正文 + tool_use(id=t1, Calculator{expression:"1+1"})
 - 单条用例：`uv run python -m pytest tests/test_agent.py::test_single_step_tool_call -q`
 
 **需要知道：**
-- `docs/测试说明.md` 是全部测试的入口与总表，可反查任意模块。
+- `docs/testing.md` 是全部测试的入口与总表，可反查任意模块。
 - `test_agent.py` 中 `test_multi_step_autonomous`（写前保护）与 `test_message_splicing`
   （消息拼接）为**存量差异，不修**，已在测试说明标注；其余全部通过。
 - 主循环与 TUI 的联动（事件如何渲染成气泡/工具卡片）不在本模块绑定内，见 09 章。

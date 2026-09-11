@@ -1,0 +1,638 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Agent 主循环 工作机制",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/xls0Jacker/MiniAgent",
+      "revision": "d1d07182cda2695d8bc6b98fd01249a1b93a5911"
+    },
+    "views": [
+      {
+        "id": "per-turn",
+        "label": "每轮前置",
+        "focus": [
+          "entry",
+          "guard",
+          "compact",
+          "assemble",
+          "budget",
+          "stream"
+        ],
+        "note": "护栏 → 压缩 → 组 prompt → 预算 → 流式，每轮按序跑一遍。"
+      },
+      {
+        "id": "diverge",
+        "label": "响应分流",
+        "focus": [
+          "diverge",
+          "recover",
+          "finish",
+          "batch"
+        ],
+        "note": "截断就升上限重试，没有工具调用就收尾，有工具调用才进入执行。"
+      },
+      {
+        "id": "exec-path",
+        "label": "工具双路",
+        "focus": [
+          "batch",
+          "exec",
+          "perm",
+          "backfill",
+          "turnend"
+        ],
+        "note": "并发批走直通路径、不判权限；串行批过权限闸，ask 时挂起等用户。"
+      },
+      {
+        "id": "guardrails",
+        "label": "三道护栏",
+        "focus": [
+          "guard",
+          "abort",
+          "diverge"
+        ],
+        "note": "轮次上限、连续未知工具、截断恢复次数——三条独立的终止线。"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "entry",
+      "type": "backend",
+      "label": "入口注入",
+      "sublabel": "环境 + 长程记忆",
+      "pos": [
+        40,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/agent.py",
+          "line": 421,
+          "label": "inject_environment"
+        },
+        {
+          "path": "autocode/agent.py",
+          "line": 424,
+          "label": "inject_long_term_memory"
+        }
+      ]
+    },
+    {
+      "id": "guard",
+      "type": "security",
+      "label": "轮次护栏",
+      "sublabel": "iteration 超上限（默认 50）",
+      "pos": [
+        280,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "护栏 1",
+      "sources": [
+        {
+          "path": "autocode/agent.py",
+          "line": 416,
+          "label": "run() 主循环"
+        },
+        {
+          "path": "autocode/agent.py",
+          "line": 440,
+          "label": "轮次上限检查"
+        }
+      ]
+    },
+    {
+      "id": "compact",
+      "type": "backend",
+      "label": "Layer 2 压缩",
+      "sublabel": "tokens ≥ 窗口 − 33k 才触发",
+      "pos": [
+        520,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/agent.py",
+          "line": 453,
+          "label": "每轮压缩检查"
+        },
+        {
+          "path": "autocode/context/manager.py",
+          "line": 726,
+          "label": "auto_compact"
+        }
+      ]
+    },
+    {
+      "id": "assemble",
+      "type": "backend",
+      "label": "组装 Prompt",
+      "sublabel": "build_system_prompt",
+      "pos": [
+        760,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/agent.py",
+          "line": 487,
+          "label": "每轮组装 system"
+        },
+        {
+          "path": "autocode/prompts.py",
+          "line": 233,
+          "label": "build_system_prompt"
+        }
+      ]
+    },
+    {
+      "id": "budget",
+      "type": "backend",
+      "label": "Layer 1 预算",
+      "sublabel": "聚合 >200k · 陈旧裁剪",
+      "pos": [
+        1000,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/agent.py",
+          "line": 519,
+          "label": "应用预算"
+        },
+        {
+          "path": "autocode/context/manager.py",
+          "line": 279,
+          "label": "apply_tool_result_budget"
+        }
+      ]
+    },
+    {
+      "id": "abort",
+      "type": "security",
+      "label": "超限终止",
+      "sublabel": "ErrorEvent 兜底退出",
+      "pos": [
+        40,
+        220
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/agent.py",
+          "line": 441,
+          "label": "yield ErrorEvent"
+        }
+      ]
+    },
+    {
+      "id": "diverge",
+      "type": "backend",
+      "label": "响应分流",
+      "sublabel": "stop_reason / tool_calls",
+      "pos": [
+        520,
+        220
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "决策点",
+      "sources": [
+        {
+          "path": "autocode/agent.py",
+          "line": 550,
+          "label": "max_tokens 判定"
+        },
+        {
+          "path": "autocode/agent.py",
+          "line": 580,
+          "label": "tool_calls 判定"
+        }
+      ]
+    },
+    {
+      "id": "stream",
+      "type": "backend",
+      "label": "client.stream()",
+      "sublabel": "流式推理",
+      "pos": [
+        1000,
+        220
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "async 迭代",
+      "sources": [
+        {
+          "path": "autocode/agent.py",
+          "line": 526,
+          "label": "发起流式调用"
+        }
+      ]
+    },
+    {
+      "id": "batch",
+      "type": "backend",
+      "label": "工具分批",
+      "sublabel": "partition_tool_calls",
+      "pos": [
+        280,
+        360
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/agent.py",
+          "line": 625,
+          "label": "按并发安全分批"
+        }
+      ]
+    },
+    {
+      "id": "finish",
+      "type": "backend",
+      "label": "收尾结束",
+      "sublabel": "无 tool_calls 即收尾",
+      "pos": [
+        520,
+        360
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/agent.py",
+          "line": 589,
+          "label": "后台抽取记忆"
+        },
+        {
+          "path": "autocode/agent.py",
+          "line": 600,
+          "label": "yield LoopComplete"
+        }
+      ]
+    },
+    {
+      "id": "recover",
+      "type": "backend",
+      "label": "截断恢复",
+      "sublabel": "stop_reason=max_tokens",
+      "pos": [
+        760,
+        360
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "最多 3 次",
+      "sources": [
+        {
+          "path": "autocode/agent.py",
+          "line": 552,
+          "label": "set_max_output_tokens"
+        },
+        {
+          "path": "autocode/agent.py",
+          "line": 564,
+          "label": "恢复次数上限"
+        }
+      ]
+    },
+    {
+      "id": "exec",
+      "type": "backend",
+      "label": "工具执行",
+      "sublabel": "按 is_concurrency_safe 分批",
+      "pos": [
+        280,
+        500
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/agent.py",
+          "line": 629,
+          "label": "并发批并行执行"
+        },
+        {
+          "path": "autocode/agent.py",
+          "line": 666,
+          "label": "串行批 pre_tool 钩子"
+        },
+        {
+          "path": "autocode/agent.py",
+          "line": 810,
+          "label": "_execute_batch_parallel"
+        }
+      ]
+    },
+    {
+      "id": "perm",
+      "type": "security",
+      "label": "权限三道闸",
+      "sublabel": "未知 / 禁用 / 权限",
+      "pos": [
+        520,
+        500
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "ask 挂起",
+      "sources": [
+        {
+          "path": "autocode/agent.py",
+          "line": 816,
+          "label": "_execute_tool 三道闸"
+        },
+        {
+          "path": "autocode/agent.py",
+          "line": 859,
+          "label": "yield PermissionRequest"
+        },
+        {
+          "path": "autocode/agent.py",
+          "line": 876,
+          "label": "ALLOW_ALWAYS 记住规则"
+        }
+      ]
+    },
+    {
+      "id": "backfill",
+      "type": "database",
+      "label": "结果回填",
+      "sublabel": ">50k 落盘 · >10k 截断",
+      "pos": [
+        760,
+        500
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/agent.py",
+          "line": 1194,
+          "label": "_maybe_persist_or_truncate"
+        },
+        {
+          "path": "autocode/agent.py",
+          "line": 746,
+          "label": "写回历史"
+        }
+      ]
+    },
+    {
+      "id": "turnend",
+      "type": "backend",
+      "label": "TurnComplete",
+      "sublabel": "本轮结束",
+      "pos": [
+        1000,
+        500
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/agent.py",
+          "line": 757,
+          "label": "yield TurnComplete"
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "entry-guard",
+      "from": "entry",
+      "to": "guard",
+      "label": "注入完成",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "guard-compact",
+      "from": "guard",
+      "to": "compact",
+      "label": "通过",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "compact-assemble",
+      "from": "compact",
+      "to": "assemble",
+      "label": "压缩后重注入",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "assemble-budget",
+      "from": "assemble",
+      "to": "budget",
+      "label": "system 参数",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "budget-stream",
+      "from": "budget",
+      "to": "stream",
+      "label": "api_conv",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        1075,
+        185
+      ]
+    },
+    {
+      "id": "stream-diverge",
+      "from": "stream",
+      "to": "diverge",
+      "label": "聚合响应",
+      "fromSide": "left",
+      "toSide": "right"
+    },
+    {
+      "id": "guard-abort",
+      "from": "guard",
+      "to": "abort",
+      "label": "超限",
+      "variant": "security",
+      "fromSide": "left",
+      "toSide": "top"
+    },
+    {
+      "id": "diverge-batch",
+      "from": "diverge",
+      "to": "batch",
+      "label": "有 tool_calls",
+      "variant": "emphasis",
+      "fromSide": "left",
+      "toSide": "top"
+    },
+    {
+      "id": "diverge-finish",
+      "from": "diverge",
+      "to": "finish",
+      "label": "无 tool_calls",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        595,
+        325
+      ]
+    },
+    {
+      "id": "diverge-recover",
+      "from": "diverge",
+      "to": "recover",
+      "label": "max_tokens",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "top"
+    },
+    {
+      "id": "batch-exec",
+      "from": "batch",
+      "to": "exec",
+      "label": "分批下发",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        355,
+        465
+      ]
+    },
+    {
+      "id": "exec-perm",
+      "from": "exec",
+      "to": "perm",
+      "label": "串行批过闸",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "perm-backfill",
+      "from": "perm",
+      "to": "backfill",
+      "label": "放行 / 拒绝",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "backfill-turnend",
+      "from": "backfill",
+      "to": "turnend",
+      "label": "写回历史",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "turnend-guard",
+      "from": "turnend",
+      "to": "guard",
+      "label": "下一轮",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "top",
+      "via": [
+        [
+          1180,
+          535
+        ],
+        [
+          1180,
+          40
+        ],
+        [
+          355,
+          40
+        ]
+      ]
+    },
+    {
+      "id": "recover-stream",
+      "from": "recover",
+      "to": "stream",
+      "label": "重试",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "两道防线怎么接力",
+      "items": [
+        "结果回填是前端门：结果写进历史前就定型，>50k 落盘、>10k 截断",
+        "Layer 1 每轮扫一遍：认得出落盘标签就跳过，只做聚合封顶与陈旧裁剪",
+        "两者共用同一个 50k 常量与落盘函数——一套机制的两个入口"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "三道护栏（各自独立触发）",
+      "items": [
+        "轮次上限：iteration > max_iterations（默认 50）即终止",
+        "连续未知工具：连 3 次查不到即终止，成功一次即清零",
+        "截断恢复：max_tokens 才触发，先升 64k 再续写 3 次"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "工具为什么分两路",
+      "items": [
+        "依据是工具声明的 is_concurrency_safe，不按读 / 写推断",
+        "Todo 属写类却为 True；Bash / EditFile / WriteFile 为 False",
+        "并发批走直通路径，不经权限检查器"
+      ]
+    }
+  ]
+}

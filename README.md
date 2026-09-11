@@ -187,7 +187,7 @@ uv run python -m pytest tests/ -q
 - `tests/test_demo_tools.py` —— 4 个演示工具行为 + Schema 完整性 + Todo 会话隔离
 - `tests/test_max_iterations.py` —— 主循环最大轮次护栏
 
-详见 `docs/测试说明.md`。
+详见 `docs/testing.md`。
 
 ---
 
@@ -197,17 +197,17 @@ uv run python -m pytest tests/ -q
 
 | # | 文档 | 对应模块 |
 |---|------|---------|
-| 01 | [初始 Coding Agent](docs/01-初始CodingAgent.md) | 入口 / 配置 / 最小闭环 |
-| 02 | [LLM 客户端与流式响应](docs/02-LLM客户端与流式响应.md) | client.py / StreamCollector |
-| 03 | [工具注册与执行框架](docs/03-工具注册与执行框架.md) | tools/ · registry |
-| 04 | [Agent 主循环与事件流](docs/04-Agent主循环与事件流.md) | agent.py ReAct loop |
-| 05 | [System Prompt 组装管线](docs/05-SystemPrompt组装管线.md) | prompts.py |
-| 06 | [权限系统](docs/06-权限系统.md) | permissions/ 五层防御 |
-| 07 | [MCP 协议接入](docs/07-MCP协议接入.md) | mcp/ 开放式扩展 |
-| 08 | [上下文压缩与 Token 管理](docs/08-上下文压缩与Token管理.md) | context/ 双层压缩 |
-| 09 | [TUI 交互设计](docs/09-TUI交互设计.md) | app.py Textual 界面 |
+| 01 | [初始 Coding Agent](docs/01-initial-coding-agent.md) | 入口 / 配置 / 最小闭环 |
+| 02 | [LLM 客户端与流式响应](docs/02-llm-client-streaming.md) | client.py / StreamCollector |
+| 03 | [工具注册与执行框架](docs/03-tool-registry.md) | tools/ · registry |
+| 04 | [Agent 主循环与事件流](docs/04-agent-loop-events.md) | agent.py ReAct loop |
+| 05 | [System Prompt 组装管线](docs/05-system-prompt.md) | prompts.py |
+| 06 | [权限系统](docs/06-permissions.md) | permissions/ 五层防御 |
+| 07 | [MCP 协议接入](docs/07-mcp.md) | mcp/ 开放式扩展 |
+| 08 | [上下文压缩与 Token 管理](docs/08-context-compaction.md) | context/ 双层压缩 |
+| 09 | [TUI 交互设计](docs/09-tui-design.md) | app.py Textual 界面 |
 
-另有 [测试说明](docs/测试说明.md)。
+另有 [测试说明](docs/testing.md)。
 
 ---
 

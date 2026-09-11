@@ -1,0 +1,640 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Hook 引擎 工作机制",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/xls0Jacker/MiniAgent",
+      "revision": "d1d07182cda2695d8bc6b98fd01249a1b93a5911"
+    },
+    "views": [
+      {
+        "id": "config",
+        "label": "配置与装载",
+        "focus": [
+          "cfg",
+          "load",
+          "evts",
+          "acts"
+        ],
+        "note": "一份配置列表，逐条校验事件名、动作类型与必填字段，非法即抛错而不是悄悄跳过。"
+      },
+      {
+        "id": "match",
+        "label": "匹配链",
+        "focus": [
+          "engine",
+          "match",
+          "cond",
+          "ctx"
+        ],
+        "note": "事件名相等 → once 没跑过 → 条件成立；三个都过才算命中。"
+      },
+      {
+        "id": "two-kinds",
+        "label": "两种钩子",
+        "focus": [
+          "engine",
+          "notify",
+          "intercept",
+          "reject"
+        ],
+        "note": "通知型跑完就走，拦截型能拒绝；只有 pre_tool_use 允许拦截。"
+      },
+      {
+        "id": "output",
+        "label": "产出去处",
+        "focus": [
+          "notify",
+          "notice",
+          "promptmsg",
+          "wire"
+        ],
+        "note": "回执转成事件给 TUI，prompt 动作的文本则被取走拼进下一轮 system 参数。"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "cfg",
+      "type": "backend",
+      "label": "hooks 配置",
+      "sublabel": "原样透传的字典列表",
+      "pos": [
+        40,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/config.py",
+          "line": 156,
+          "label": "raw_hooks 原样透传"
+        },
+        {
+          "path": "autocode/config.py",
+          "line": 205,
+          "label": "从校验后的配置取"
+        }
+      ]
+    },
+    {
+      "id": "load",
+      "type": "backend",
+      "label": "load_hooks()",
+      "sublabel": "逐条校验，非法即抛错",
+      "pos": [
+        280,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "不静默跳过",
+      "sources": [
+        {
+          "path": "autocode/hooks/loader.py",
+          "line": 27,
+          "label": "def load_hooks"
+        },
+        {
+          "path": "autocode/hooks/loader.py",
+          "line": 41,
+          "label": "事件名非法即报错"
+        },
+        {
+          "path": "autocode/hooks/loader.py",
+          "line": 52,
+          "label": "动作类型非法即报错"
+        }
+      ]
+    },
+    {
+      "id": "evts",
+      "type": "backend",
+      "label": "LifecycleEvent",
+      "sublabel": "15 个事件 · 5 个层级",
+      "pos": [
+        520,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "枚举即白名单",
+      "sources": [
+        {
+          "path": "autocode/hooks/events.py",
+          "line": 6,
+          "label": "class LifecycleEvent"
+        },
+        {
+          "path": "autocode/hooks/events.py",
+          "line": 8,
+          "label": "会话级两个"
+        },
+        {
+          "path": "autocode/hooks/events.py",
+          "line": 26,
+          "label": "系统级七个"
+        }
+      ]
+    },
+    {
+      "id": "acts",
+      "type": "backend",
+      "label": "四种动作",
+      "sublabel": "command · prompt · http · agent",
+      "pos": [
+        760,
+        80
+      ],
+      "size": [
+        185,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/hooks/executors.py",
+          "line": 83,
+          "label": "_EXECUTOR_MAP"
+        },
+        {
+          "path": "autocode/hooks/loader.py",
+          "line": 10,
+          "label": "每种动作的必填字段"
+        },
+        {
+          "path": "autocode/hooks/executors.py",
+          "line": 74,
+          "label": "agent 执行器是 stub"
+        }
+      ]
+    },
+    {
+      "id": "engine",
+      "type": "backend",
+      "label": "HookEngine",
+      "sublabel": "持有全部已装载的钩子",
+      "pos": [
+        40,
+        220
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/hooks/engine.py",
+          "line": 21,
+          "label": "class HookEngine"
+        },
+        {
+          "path": "autocode/hooks/engine.py",
+          "line": 22,
+          "label": "hooks 列表"
+        }
+      ]
+    },
+    {
+      "id": "match",
+      "type": "backend",
+      "label": "find_matching_hooks",
+      "sublabel": "事件相等 + once + 条件",
+      "pos": [
+        280,
+        220
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "三个都要过",
+      "sources": [
+        {
+          "path": "autocode/hooks/engine.py",
+          "line": 28,
+          "label": "def find_matching_hooks"
+        },
+        {
+          "path": "autocode/hooks/engine.py",
+          "line": 33,
+          "label": "once 已跑过则跳过"
+        },
+        {
+          "path": "autocode/hooks/engine.py",
+          "line": 35,
+          "label": "条件不成立则跳过"
+        }
+      ]
+    },
+    {
+      "id": "cond",
+      "type": "backend",
+      "label": "ConditionGroup",
+      "sublabel": "== != =~ ~= 四种运算符",
+      "pos": [
+        520,
+        220
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "不许混用 && 与 ||",
+      "sources": [
+        {
+          "path": "autocode/hooks/conditions.py",
+          "line": 39,
+          "label": "class ConditionGroup"
+        },
+        {
+          "path": "autocode/hooks/conditions.py",
+          "line": 19,
+          "label": "四种运算符的求值"
+        },
+        {
+          "path": "autocode/hooks/conditions.py",
+          "line": 81,
+          "label": "混用直接报错"
+        }
+      ]
+    },
+    {
+      "id": "ctx",
+      "type": "backend",
+      "label": "HookContext",
+      "sublabel": "字段取值 + $变量展开",
+      "pos": [
+        760,
+        220
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/hooks/models.py",
+          "line": 51,
+          "label": "class HookContext"
+        },
+        {
+          "path": "autocode/hooks/models.py",
+          "line": 59,
+          "label": "get_field：tool/event/args.x"
+        },
+        {
+          "path": "autocode/hooks/models.py",
+          "line": 70,
+          "label": "expand 展开 $ 变量"
+        }
+      ]
+    },
+    {
+      "id": "notify",
+      "type": "backend",
+      "label": "run_hooks() · 通知型",
+      "sublabel": "跑完即散场，不拦截",
+      "pos": [
+        280,
+        360
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "八种事件走这里",
+      "sources": [
+        {
+          "path": "autocode/hooks/engine.py",
+          "line": 41,
+          "label": "def run_hooks"
+        },
+        {
+          "path": "autocode/hooks/engine.py",
+          "line": 45,
+          "label": "async 则后台发射"
+        },
+        {
+          "path": "autocode/hooks/engine.py",
+          "line": 54,
+          "label": "prompt 动作产物被留下"
+        }
+      ]
+    },
+    {
+      "id": "intercept",
+      "type": "security",
+      "label": "run_pre_tool_hooks",
+      "sublabel": "拦截型，可拒绝工具",
+      "pos": [
+        520,
+        360
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "仅 pre_tool_use",
+      "sources": [
+        {
+          "path": "autocode/hooks/engine.py",
+          "line": 80,
+          "label": "def run_pre_tool_hooks"
+        },
+        {
+          "path": "autocode/hooks/engine.py",
+          "line": 96,
+          "label": "reject 为真则返回拒绝"
+        },
+        {
+          "path": "autocode/hooks/loader.py",
+          "line": 67,
+          "label": "reject 只许配 pre_tool_use"
+        }
+      ]
+    },
+    {
+      "id": "reject",
+      "type": "security",
+      "label": "ToolRejectedError",
+      "sublabel": "工具短路成错误结果",
+      "pos": [
+        1000,
+        360
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "执行被跳过",
+      "sources": [
+        {
+          "path": "autocode/hooks/engine.py",
+          "line": 97,
+          "label": "构造 ToolRejectedError"
+        },
+        {
+          "path": "autocode/hooks/models.py",
+          "line": 82,
+          "label": "class ToolRejectedError"
+        }
+      ]
+    },
+    {
+      "id": "notice",
+      "type": "backend",
+      "label": "HookNotification",
+      "sublabel": "drain 后转 HookEvent",
+      "pos": [
+        280,
+        500
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/hooks/engine.py",
+          "line": 14,
+          "label": "class HookNotification"
+        },
+        {
+          "path": "autocode/hooks/engine.py",
+          "line": 112,
+          "label": "drain_notifications"
+        },
+        {
+          "path": "autocode/hooks/engine.py",
+          "line": 64,
+          "label": "失败会记 warning 日志"
+        }
+      ]
+    },
+    {
+      "id": "wire",
+      "type": "backend",
+      "label": "主循环挂点",
+      "sublabel": "session / turn / tool / send",
+      "pos": [
+        520,
+        500
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/agent.py",
+          "line": 448,
+          "label": "turn_start"
+        },
+        {
+          "path": "autocode/agent.py",
+          "line": 666,
+          "label": "pre_tool_use"
+        },
+        {
+          "path": "autocode/agent.py",
+          "line": 754,
+          "label": "turn_end"
+        }
+      ]
+    },
+    {
+      "id": "promptmsg",
+      "type": "database",
+      "label": "prompt 动作产物",
+      "sublabel": "取走后拼进 system 参数",
+      "pos": [
+        760,
+        500
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "一次性取走",
+      "sources": [
+        {
+          "path": "autocode/hooks/engine.py",
+          "line": 55,
+          "label": "结果追加进 _prompt_messages"
+        },
+        {
+          "path": "autocode/hooks/engine.py",
+          "line": 106,
+          "label": "get_prompt_messages 清空返回"
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "cfg-load",
+      "from": "cfg",
+      "to": "load",
+      "label": "逐条校验",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "load-evts",
+      "from": "load",
+      "to": "evts",
+      "label": "校验事件名",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "evts-acts",
+      "from": "evts",
+      "to": "acts",
+      "label": "校验动作类型",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "load-engine",
+      "from": "load",
+      "to": "engine",
+      "label": "装载进引擎",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        235,
+        185
+      ]
+    },
+    {
+      "id": "engine-match",
+      "from": "engine",
+      "to": "match",
+      "label": "按事件筛",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "match-cond",
+      "from": "match",
+      "to": "cond",
+      "label": "再判条件",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "cond-ctx",
+      "from": "cond",
+      "to": "ctx",
+      "label": "字段取自 context",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "engine-notify",
+      "from": "engine",
+      "to": "notify",
+      "label": "通知型",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        235,
+        309
+      ]
+    },
+    {
+      "id": "engine-intercept",
+      "from": "engine",
+      "to": "intercept",
+      "label": "拦截型",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        415,
+        325
+      ]
+    },
+    {
+      "id": "intercept-reject",
+      "from": "intercept",
+      "to": "reject",
+      "label": "拒绝则抛出",
+      "variant": "security",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "notify-notice",
+      "from": "notify",
+      "to": "notice",
+      "label": "执行回执",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        355,
+        481
+      ]
+    },
+    {
+      "id": "notify-promptmsg",
+      "from": "notify",
+      "to": "promptmsg",
+      "label": "prompt 产物",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        595,
+        465
+      ]
+    },
+    {
+      "id": "notice-wire",
+      "from": "notice",
+      "to": "wire",
+      "label": "转 HookEvent",
+      "fromSide": "right",
+      "toSide": "left"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "一个引擎，两种待遇",
+      "items": [
+        "通知型：run_hooks 跑完把回执塞进队列，工具照常执行",
+        "拦截型：只有 pre_tool_use 能 reject，把工具短路成错误结果",
+        "配置期就卡死：reject 与 async 只许出现在 pre_tool_use 上"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "条件是自描述的",
+      "items": [
+        "条件写成 field 运算符 value，共四种：== != =~ ~=",
+        "多个条件用 && 或 || 连，但不许混用——混用直接报配置错",
+        "字段从 HookContext 取，共三类：tool、event、args.<key>"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "15 个事件，实际只发射 10 个",
+      "items": [
+        "有调用点：会话与轮次起止、收发前后、工具前后、启动与关闭",
+        "从没被发射：error、compact、permission_request 等五个",
+        "四种动作里 command / http / prompt 可用，agent 仍是空壳"
+      ]
+    }
+  ]
+}

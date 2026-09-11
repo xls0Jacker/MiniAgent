@@ -1,0 +1,548 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "权限分层 工作机制",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/xls0Jacker/MiniAgent",
+      "revision": "d1d07182cda2695d8bc6b98fd01249a1b93a5911"
+    },
+    "views": [
+      {
+        "id": "entry",
+        "label": "入口",
+        "focus": [
+          "entry",
+          "content",
+          "l0"
+        ],
+        "note": "一次 check 调用先生成「待判内容」，再从 Layer 0 开始逐层下落。"
+      },
+      {
+        "id": "command-layers",
+        "label": "命令类前三层",
+        "focus": [
+          "l0",
+          "l1",
+          "l1b"
+        ],
+        "note": "Plan 例外先放行；再看是不是安全只读命令；再看是不是危险命令。"
+      },
+      {
+        "id": "path-rule-mode",
+        "label": "路径与规则",
+        "focus": [
+          "l2",
+          "l3",
+          "l4"
+        ],
+        "note": "文件类先过沙箱，再过规则引擎，最后落到模式矩阵。"
+      },
+      {
+        "id": "shortcut",
+        "label": "短路与兜底",
+        "focus": [
+          "l0",
+          "planfile",
+          "l5",
+          "decision",
+          "localrule"
+        ],
+        "note": "任何一层表态即返回；只有全都不表态才落到 ask，ask 的答案还会写回规则文件。"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "entry",
+      "type": "backend",
+      "label": "check(tool, args)",
+      "sublabel": "六层顺序判定",
+      "pos": [
+        40,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "唯一入口",
+      "sources": [
+        {
+          "path": "autocode/permissions/checker.py",
+          "line": 39,
+          "label": "def check"
+        },
+        {
+          "path": "autocode/permissions/checker.py",
+          "line": 43,
+          "label": "Layer 0 在最前"
+        }
+      ]
+    },
+    {
+      "id": "content",
+      "type": "backend",
+      "label": "extract_content()",
+      "sublabel": "工具名 → 待判字段",
+      "pos": [
+        280,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/permissions/rules.py",
+          "line": 45,
+          "label": "def extract_content"
+        },
+        {
+          "path": "autocode/permissions/rules.py",
+          "line": 15,
+          "label": "工具 → 字段映射表"
+        }
+      ]
+    },
+    {
+      "id": "planfile",
+      "type": "backend",
+      "label": "Plan 文件豁免",
+      "sublabel": "写 plan 文件放行",
+      "pos": [
+        760,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "Layer 0 附加条款",
+      "sources": [
+        {
+          "path": "autocode/permissions/checker.py",
+          "line": 84,
+          "label": "_is_plan_file"
+        },
+        {
+          "path": "autocode/permissions/checker.py",
+          "line": 46,
+          "label": "WriteFile/EditFile 单独判"
+        },
+        {
+          "path": "autocode/permissions/checker.py",
+          "line": 86,
+          "label": "兜底匹配 plans 目录"
+        }
+      ]
+    },
+    {
+      "id": "l0",
+      "type": "security",
+      "label": "Layer 0 · Plan 例外",
+      "sublabel": "白名单工具先放行",
+      "pos": [
+        40,
+        220
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "allow",
+      "sources": [
+        {
+          "path": "autocode/permissions/checker.py",
+          "line": 44,
+          "label": "plan 模式白名单命中"
+        },
+        {
+          "path": "autocode/permissions/checker.py",
+          "line": 13,
+          "label": "四个白名单工具"
+        },
+        {
+          "path": "autocode/permissions/checker.py",
+          "line": 47,
+          "label": "plan 文件写入放行"
+        }
+      ]
+    },
+    {
+      "id": "l1",
+      "type": "security",
+      "label": "Layer 1 · 安全只读",
+      "sublabel": "前缀命中且无管道符",
+      "pos": [
+        280,
+        220
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "allow",
+      "sources": [
+        {
+          "path": "autocode/permissions/checker.py",
+          "line": 51,
+          "label": "category 为 command 且安全"
+        },
+        {
+          "path": "autocode/permissions/dangerous.py",
+          "line": 32,
+          "label": "is_safe_command"
+        },
+        {
+          "path": "autocode/permissions/dangerous.py",
+          "line": 17,
+          "label": "安全命令白名单"
+        }
+      ]
+    },
+    {
+      "id": "l1b",
+      "type": "security",
+      "label": "Layer 1b · 危险命令",
+      "sublabel": "8 条正则命中即拒",
+      "pos": [
+        520,
+        220
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "deny",
+      "sources": [
+        {
+          "path": "autocode/permissions/checker.py",
+          "line": 55,
+          "label": "command 类才走黑名单"
+        },
+        {
+          "path": "autocode/permissions/dangerous.py",
+          "line": 5,
+          "label": "8 条危险模式"
+        },
+        {
+          "path": "autocode/permissions/dangerous.py",
+          "line": 55,
+          "label": "detect() 返回首个命中"
+        }
+      ]
+    },
+    {
+      "id": "l2",
+      "type": "security",
+      "label": "Layer 2 · 路径沙箱",
+      "sublabel": "resolve 后须落在允许根内",
+      "pos": [
+        40,
+        360
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "deny",
+      "sources": [
+        {
+          "path": "autocode/permissions/checker.py",
+          "line": 61,
+          "label": "仅 read / write 类"
+        },
+        {
+          "path": "autocode/permissions/sandbox.py",
+          "line": 27,
+          "label": "PathSandbox.check"
+        },
+        {
+          "path": "autocode/permissions/sandbox.py",
+          "line": 16,
+          "label": "项目根 + 临时目录"
+        }
+      ]
+    },
+    {
+      "id": "l3",
+      "type": "security",
+      "label": "Layer 3 · 规则引擎",
+      "sublabel": "三层文件 · 层内后写的赢",
+      "pos": [
+        280,
+        360
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "allow / deny",
+      "sources": [
+        {
+          "path": "autocode/permissions/checker.py",
+          "line": 67,
+          "label": "规则引擎表态即返回"
+        },
+        {
+          "path": "autocode/permissions/rules.py",
+          "line": 96,
+          "label": "evaluate 逐层从后往前"
+        },
+        {
+          "path": "autocode/permissions/rules.py",
+          "line": 35,
+          "label": "Rule.matches 用 fnmatch"
+        }
+      ]
+    },
+    {
+      "id": "l4",
+      "type": "security",
+      "label": "Layer 4 · 模式矩阵",
+      "sublabel": "6 种模式 × 3 类工具",
+      "pos": [
+        520,
+        360
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "allow / deny / ask",
+      "sources": [
+        {
+          "path": "autocode/permissions/checker.py",
+          "line": 74,
+          "label": "mode_decide 兜底判定"
+        },
+        {
+          "path": "autocode/permissions/modes.py",
+          "line": 21,
+          "label": "_MODE_MATRIX"
+        },
+        {
+          "path": "autocode/permissions/modes.py",
+          "line": 31,
+          "label": "mode_decide"
+        }
+      ]
+    },
+    {
+      "id": "l5",
+      "type": "security",
+      "label": "Layer 5 · 兜底",
+      "sublabel": "前六层都不表态才到",
+      "pos": [
+        520,
+        500
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "ask",
+      "sources": [
+        {
+          "path": "autocode/permissions/checker.py",
+          "line": 81,
+          "label": "return ask"
+        }
+      ]
+    },
+    {
+      "id": "decision",
+      "type": "backend",
+      "label": "Decision",
+      "sublabel": "effect + reason",
+      "pos": [
+        760,
+        500
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/permissions/checker.py",
+          "line": 16,
+          "label": "class Decision"
+        },
+        {
+          "path": "autocode/permissions/modes.py",
+          "line": 9,
+          "label": "allow | deny | ask"
+        }
+      ]
+    },
+    {
+      "id": "localrule",
+      "type": "database",
+      "label": "本地规则落盘",
+      "sublabel": "ALLOW_ALWAYS 追加一条",
+      "pos": [
+        1000,
+        500
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "反向写回",
+      "sources": [
+        {
+          "path": "autocode/permissions/rules.py",
+          "line": 104,
+          "label": "append_local_rule"
+        },
+        {
+          "path": "autocode/agent.py",
+          "line": 876,
+          "label": "ALLOW_ALWAYS 分支"
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "entry-content",
+      "from": "entry",
+      "to": "content",
+      "label": "取字段",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "content-l0",
+      "from": "content",
+      "to": "l0",
+      "label": "从 Layer 0 起",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        235,
+        169
+      ]
+    },
+    {
+      "id": "l0-planfile",
+      "from": "l0",
+      "to": "planfile",
+      "label": "写 plan 文件则放行",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelAt": [
+        520,
+        185
+      ]
+    },
+    {
+      "id": "l0-l1",
+      "from": "l0",
+      "to": "l1",
+      "label": "不表态",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "l1-l1b",
+      "from": "l1",
+      "to": "l1b",
+      "label": "不表态",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "l1b-l2",
+      "from": "l1b",
+      "to": "l2",
+      "label": "继续下落",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        355,
+        325
+      ]
+    },
+    {
+      "id": "l2-l3",
+      "from": "l2",
+      "to": "l3",
+      "label": "不表态",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "l3-l4",
+      "from": "l3",
+      "to": "l4",
+      "label": "不表态",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "l4-l5",
+      "from": "l4",
+      "to": "l5",
+      "label": "都不表态",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        595,
+        465
+      ]
+    },
+    {
+      "id": "l5-decision",
+      "from": "l5",
+      "to": "decision",
+      "label": "兜底产出",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "decision-localrule",
+      "from": "decision",
+      "to": "localrule",
+      "label": "ALLOW_ALWAYS",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "left"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "命中即返回，不再往下走",
+      "items": [
+        "六层按固定顺序执行，任何一层给出 allow / deny 就立刻 return",
+        "只有前六层全都不表态，才落到 Layer 5 兜底的 ask",
+        "层序本身就是优先级：Plan 例外在最上，人工确认在最下"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Layer 1 与 1b 判定方式相反",
+      "items": [
+        "Layer 1 是白名单前缀匹配：命令首词在表内，且不含管道、分号、重定向等字符",
+        "Layer 1b 是黑名单正则：8 条命中即拒（删根目录、格式化、fork bomb、管道执行远程脚本）",
+        "先白后黑有原因：带管道的复合命令必须被白名单先排除，否则会被误放行"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "规则三层，层内后写的赢",
+      "items": [
+        "RuleEngine 按 用户 → 项目 → 本地 逐层查，层内从后往前取第一条命中",
+        "弹窗里选 ALLOW_ALWAYS 会把新规则追加到本地层，下次判定直接在 Layer 3 命中",
+        "模式矩阵只在规则不表态时才生效：6 种模式 × 3 类工具的兜底真值表"
+      ]
+    }
+  ]
+}

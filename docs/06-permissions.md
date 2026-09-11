@@ -145,7 +145,7 @@ ToolCallComplete 到达
 - 单条用例：`uv run python -m pytest tests/test_permissions.py::TestPathSandbox -q`
 
 **需要知道：**
-- `docs/测试说明.md` 是全部测试的入口与总表，可反查任意模块。
+- `docs/testing.md` 是全部测试的入口与总表，可反查任意模块。
 - `test_permissions.py` 中 3 项为**存量差异，不修**（已在测试说明标注）：
   `TestPermissionChecker::test_plan_mode_denies_write`（PLAN 写操作期望 deny、实现返回 ask）、
   `test_e2e_bypass_mode_allows_all`（写前保护拦截）、`test_e2e_rule_allows_git`（依赖 git

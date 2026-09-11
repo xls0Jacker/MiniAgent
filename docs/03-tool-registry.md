@@ -152,7 +152,7 @@ class Calculator(Tool):
 - 单条用例：`uv run python -m pytest tests/test_demo_tools.py::test_calculator_rejects_code_injection -q`
 
 **需要知道：**
-- `docs/测试说明.md` 是全部测试的入口与总表，可反查任意模块。
+- `docs/testing.md` 是全部测试的入口与总表，可反查任意模块。
 - 本模块绑定的三个文件测试全部通过（`test_demo_tools.py` 为新增测试，覆盖 ≥3 演示工具 +
   注册机制 + 工具注册回调 的验收点）。
 - ToolSearchTool 的真实召回质量、编码工具（ReadFile/WriteFile/Bash）的写前保护不在本

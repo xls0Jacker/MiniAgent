@@ -119,7 +119,7 @@ class MCPToolWrapper(Tool):
 - 配置相关：`tests/test_mcp.py::TestResolveEnvVars`、`TestBuildChildEnv`（env 变量替换/子进程环境）
 
 **需要知道：**
-- `docs/测试说明.md` 是全部测试的入口与总表，可反查任意模块。
+- `docs/testing.md` 是全部测试的入口与总表，可反查任意模块。
 - `TestLoadConfigMCP` 中 4 项（stdio / http / 二选一 / 两者皆缺）为**存量差异，不修**
   （validator 校验行为与实现不一致），已在测试说明标注——本模块绑定不指向它们。
 - 真实 MCP server 的连接 / 断线自愈 / 远端工具调用不在 mock 测试范围，需接真实 server

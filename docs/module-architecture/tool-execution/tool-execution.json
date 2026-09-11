@@ -1,0 +1,593 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "工具注册与执行 工作机制",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/xls0Jacker/MiniAgent",
+      "revision": "d1d07182cda2695d8bc6b98fd01249a1b93a5911"
+    },
+    "views": [
+      {
+        "id": "declare",
+        "label": "声明与注册",
+        "focus": [
+          "decl",
+          "builtin",
+          "reg",
+          "schema",
+          "defer"
+        ],
+        "note": "工具靠类属性声明自己，注册表按声明登记、按声明决定要不要把 schema 发出去。"
+      },
+      {
+        "id": "partition",
+        "label": "分批",
+        "focus": [
+          "partition",
+          "parallel",
+          "serial"
+        ],
+        "note": "一次响应里的多个 tool_call 按 is_concurrency_safe 切成并发批与串行批。"
+      },
+      {
+        "id": "serial-gate",
+        "label": "串行批三道闸",
+        "focus": [
+          "serial",
+          "hookpre",
+          "perm",
+          "ask"
+        ],
+        "note": "串行批先过钩子（可 reject），再过权限判定，ask 时整轮挂起。"
+      },
+      {
+        "id": "egress",
+        "label": "输出与回填",
+        "focus": [
+          "gate",
+          "backfill"
+        ],
+        "note": "结果写回历史前先过输出闸：超 50k 落盘、超 10k 截断。"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "decl",
+      "type": "backend",
+      "label": "Tool 声明式元数据",
+      "sublabel": "category · 三个布尔标记",
+      "pos": [
+        40,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/tools/base.py",
+          "line": 26,
+          "label": "category: read|write|command"
+        },
+        {
+          "path": "autocode/tools/base.py",
+          "line": 27,
+          "label": "is_concurrency_safe 默认 False"
+        },
+        {
+          "path": "autocode/tools/base.py",
+          "line": 29,
+          "label": "should_defer 默认 False"
+        }
+      ]
+    },
+    {
+      "id": "builtin",
+      "type": "backend",
+      "label": "内置工具集",
+      "sublabel": "文件六个 + 演示四个",
+      "pos": [
+        280,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/tools/__init__.py",
+          "line": 141,
+          "label": "create_default_registry"
+        },
+        {
+          "path": "autocode/tools/__init__.py",
+          "line": 153,
+          "label": "逐个 register"
+        },
+        {
+          "path": "autocode/tools/__init__.py",
+          "line": 162,
+          "label": "register_demo_tools"
+        }
+      ]
+    },
+    {
+      "id": "reg",
+      "type": "backend",
+      "label": "ToolRegistry",
+      "sublabel": "注册 · 启停 · 延迟发现",
+      "pos": [
+        520,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "单一真源",
+      "sources": [
+        {
+          "path": "autocode/tools/__init__.py",
+          "line": 12,
+          "label": "class ToolRegistry"
+        },
+        {
+          "path": "autocode/tools/__init__.py",
+          "line": 18,
+          "label": "register()"
+        },
+        {
+          "path": "autocode/tools/__init__.py",
+          "line": 25,
+          "label": "is_enabled()"
+        }
+      ]
+    },
+    {
+      "id": "schema",
+      "type": "backend",
+      "label": "get_schema()",
+      "sublabel": "Pydantic → input_schema",
+      "pos": [
+        760,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/tools/base.py",
+          "line": 36,
+          "label": "get_schema"
+        },
+        {
+          "path": "autocode/tools/base.py",
+          "line": 37,
+          "label": "model_json_schema()"
+        }
+      ]
+    },
+    {
+      "id": "defer",
+      "type": "backend",
+      "label": "延迟工具筛选",
+      "sublabel": "未发现就不下发",
+      "pos": [
+        1000,
+        80
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "省 context",
+      "sources": [
+        {
+          "path": "autocode/tools/__init__.py",
+          "line": 121,
+          "label": "get_all_schemas"
+        },
+        {
+          "path": "autocode/tools/__init__.py",
+          "line": 126,
+          "label": "should_defer 且未发现则跳过"
+        },
+        {
+          "path": "autocode/tools/__init__.py",
+          "line": 47,
+          "label": "get_deferred_tool_names"
+        }
+      ]
+    },
+    {
+      "id": "partition",
+      "type": "backend",
+      "label": "partition_tool_calls",
+      "sublabel": "连续安全调用合并成批",
+      "pos": [
+        520,
+        220
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "决策点",
+      "sources": [
+        {
+          "path": "autocode/agent.py",
+          "line": 236,
+          "label": "def partition_tool_calls"
+        },
+        {
+          "path": "autocode/agent.py",
+          "line": 243,
+          "label": "safe = 标记 and 未禁用"
+        },
+        {
+          "path": "autocode/agent.py",
+          "line": 245,
+          "label": "向后合并同一批"
+        }
+      ]
+    },
+    {
+      "id": "parallel",
+      "type": "backend",
+      "label": "并发批",
+      "sublabel": "asyncio.gather 并行",
+      "pos": [
+        40,
+        360
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "仅当批内 >1",
+      "sources": [
+        {
+          "path": "autocode/agent.py",
+          "line": 628,
+          "label": "batch.concurrent and len > 1"
+        },
+        {
+          "path": "autocode/agent.py",
+          "line": 810,
+          "label": "_execute_batch_parallel"
+        }
+      ]
+    },
+    {
+      "id": "serial",
+      "type": "backend",
+      "label": "串行批",
+      "sublabel": "逐个执行",
+      "pos": [
+        280,
+        360
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/agent.py",
+          "line": 652,
+          "label": "否则逐个走"
+        },
+        {
+          "path": "autocode/agent.py",
+          "line": 693,
+          "label": "async for item in _execute_tool"
+        }
+      ]
+    },
+    {
+      "id": "hookpre",
+      "type": "security",
+      "label": "pre_tool_use 钩子",
+      "sublabel": "reject 则短路",
+      "pos": [
+        520,
+        360
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "闸一",
+      "sources": [
+        {
+          "path": "autocode/agent.py",
+          "line": 666,
+          "label": "run_pre_tool_hooks"
+        },
+        {
+          "path": "autocode/agent.py",
+          "line": 669,
+          "label": "rejection 非空即短路"
+        }
+      ]
+    },
+    {
+      "id": "perm",
+      "type": "security",
+      "label": "权限判定",
+      "sublabel": "deny / ask / allow",
+      "pos": [
+        760,
+        360
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "闸二",
+      "sources": [
+        {
+          "path": "autocode/agent.py",
+          "line": 842,
+          "label": "permission_checker.check"
+        },
+        {
+          "path": "autocode/agent.py",
+          "line": 845,
+          "label": "deny 直接返回错误"
+        }
+      ]
+    },
+    {
+      "id": "ask",
+      "type": "security",
+      "label": "PermissionRequest",
+      "sublabel": "yield 后 await future",
+      "pos": [
+        1000,
+        360
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "整轮挂起",
+      "sources": [
+        {
+          "path": "autocode/agent.py",
+          "line": 859,
+          "label": "yield PermissionRequest"
+        },
+        {
+          "path": "autocode/agent.py",
+          "line": 865,
+          "label": "await future 等用户"
+        },
+        {
+          "path": "autocode/agent.py",
+          "line": 876,
+          "label": "ALLOW_ALWAYS 落本地规则"
+        }
+      ]
+    },
+    {
+      "id": "gate",
+      "type": "backend",
+      "label": "输出闸",
+      "sublabel": ">50k 落盘 · >10k 截断",
+      "pos": [
+        760,
+        500
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "tag": "写回前定型",
+      "sources": [
+        {
+          "path": "autocode/agent.py",
+          "line": 1194,
+          "label": "_maybe_persist_or_truncate"
+        },
+        {
+          "path": "autocode/tools/base.py",
+          "line": 11,
+          "label": "MAX_OUTPUT_CHARS = 10000"
+        }
+      ]
+    },
+    {
+      "id": "backfill",
+      "type": "database",
+      "label": "结果回填",
+      "sublabel": "保序写回历史",
+      "pos": [
+        520,
+        500
+      ],
+      "size": [
+        150,
+        70
+      ],
+      "sources": [
+        {
+          "path": "autocode/agent.py",
+          "line": 722,
+          "label": "tool_results.append"
+        },
+        {
+          "path": "autocode/agent.py",
+          "line": 746,
+          "label": "add_tool_results_message"
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "decl-builtin",
+      "from": "decl",
+      "to": "builtin",
+      "label": "被继承",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "builtin-reg",
+      "from": "builtin",
+      "to": "reg",
+      "label": "register()",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "reg-schema",
+      "from": "reg",
+      "to": "schema",
+      "label": "取 schema",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "schema-defer",
+      "from": "schema",
+      "to": "defer",
+      "label": "下发前筛选",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "decl-partition",
+      "from": "decl",
+      "to": "partition",
+      "label": "按标记分批",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        595,
+        185
+      ]
+    },
+    {
+      "id": "partition-parallel",
+      "from": "partition",
+      "to": "parallel",
+      "label": "并发批",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        355,
+        309
+      ]
+    },
+    {
+      "id": "partition-serial",
+      "from": "partition",
+      "to": "serial",
+      "label": "串行批",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        475,
+        341
+      ]
+    },
+    {
+      "id": "serial-hookpre",
+      "from": "serial",
+      "to": "hookpre",
+      "label": "先过钩子",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "hookpre-perm",
+      "from": "hookpre",
+      "to": "perm",
+      "label": "再判权限",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "perm-ask",
+      "from": "perm",
+      "to": "ask",
+      "label": "ask 时",
+      "variant": "security",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "parallel-gate",
+      "from": "parallel",
+      "to": "gate",
+      "label": "并发批结果",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        475,
+        465
+      ]
+    },
+    {
+      "id": "ask-gate",
+      "from": "ask",
+      "to": "gate",
+      "label": "串行批结果",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        955,
+        465
+      ]
+    },
+    {
+      "id": "gate-backfill",
+      "from": "gate",
+      "to": "backfill",
+      "label": "闸后",
+      "variant": "emphasis",
+      "fromSide": "left",
+      "toSide": "right"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "分批依据是工具自己的声明",
+      "items": [
+        "partition_tool_calls 只看 is_concurrency_safe 与 is_enabled",
+        "连续的安全调用并成一批；遇到不安全的立即断开另起",
+        "故 Todo 属写类却是 True，Bash / EditFile / WriteFile 是 False"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "两条路径的闸门不一样",
+      "items": [
+        "并发批走直通路径：只查未知与启停，完全不碰权限检查器",
+        "串行批先过 pre_tool_use 钩子（可 reject），再判权限",
+        "权限 ask 时 yield 出请求并 await future——整轮停在这里等用户"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "输出闸是一次性定型",
+      "items": [
+        "_maybe_persist_or_truncate 在写回历史前定型，之后不再重算",
+        ">50k 落盘成 2KB 预览，>10k 直接截断，两者都不可逆",
+        "另有护栏：连续 3 次未知工具直接终止整个循环"
+      ]
+    }
+  ]
+}
