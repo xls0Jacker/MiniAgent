@@ -136,6 +136,7 @@ autocode/agent.py:416   run() 主循环
 |---|---|---|
 | `runtime-architecture.html` | 图本身，自包含单文件 | ✅ |
 | `runtime-architecture.json` | 图的输入规格，改文案/加节点改这个 | ✅ |
+| `preview.png` | 缩略预览图（2048×1320 浅色），供仓库根 README 内嵌 | ✅ |
 | `.gitignore` | 屏蔽本目录下的浏览器证据文件 | ✅ |
 | `runtime-architecture.visual-check.*.png` | 4 张浏览器截图（1440×900 与 2048×1320，各明暗两套） | ❌ 本地 |
 | `runtime-architecture.visual-check.html` | 截图的 contact sheet | ❌ 本地 |

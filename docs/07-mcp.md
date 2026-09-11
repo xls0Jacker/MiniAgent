@@ -13,7 +13,7 @@ MCP（Model Context Protocol）是「Agent ↔ 外部工具服务」的统一协
 
 Weather 演示工具**特意走内置 Tool 而非 MCP**（本目录的 Weather 用本地哈希
 mock）——因为它要演示的是「工具注册 → LLM 自主调用」这一核心机制，走 MCP 会
-把演示路径引入网络/服务依赖。MCP 接入能力保留在代码里，作为「生态扩展」的加分点讲。
+把演示路径引入网络/服务依赖。MCP 接入能力保留在代码里，作为独立的生态扩展通道。
 
 `autocode/mcp/` 三个文件：
 

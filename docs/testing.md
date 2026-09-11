@@ -16,9 +16,9 @@
 
 | 测试文件 | 覆盖的功能点 | 归属 |
 |----------|--------------|------|
-| `tests/test_demo_tools.py` | 演示工具（Calculator 安全求值 / Search mock / Weather / Todo）、工具注册机制、Schema 完整性、Todo session 隔离 | 新增 |
+| `tests/test_demo_tools.py` | 演示工具（Calculator 安全求值 / Search mock / Weather / Todo）、工具注册机制（schemas / register）、Schema 完整性、Todo session 隔离 | 新增 |
 | `tests/test_max_iterations.py` | context 管理的最大轮次限制（Agent 主循环护栏） | 新增 |
-| `tests/test_agent.py` | 基本循环（接收输入→判断回复/调工具→执行→继续或返回）、工具调用 trace、异常处理、会话续聊、上下文压缩、多工具并发、token 用量、取消与超时 | 存量 |
+| `tests/test_agent.py` | 基本循环（single-step / multi-step / autonomous）、工具调用 trace、异常处理（工具错误 / 除零 / 注入拒绝 / 取消 / 超时）、会话续聊、上下文压缩、多工具并发、token 用量 | 存量 |
 | `tests/test_commands.py` | 命令行解析、命令注册、模式切换 | 存量 |
 | `tests/test_context.py` | 基础压缩（auto-compact 消息构造）、token 预算 | 存量 |
 | `tests/test_context_window.py` | 模型 context window 解析/映射 | 存量 |
@@ -30,22 +30,10 @@
 | `tests/test_recovery.py` | 崩溃恢复 / 断点续聊 | 存量 |
 | `tests/test_replacement_state.py` | 文本替换状态管理 | 存量 |
 | `tests/test_scroll_guard.py` | 滚动保护 | 存量 |
-| `tests/test_serialization.py` | LLM 消息/工具调用序列化、三协议（anthropic/openai/responses） | 存量 |
+| `tests/test_serialization.py` | LLM 消息/工具调用序列化、三协议（anthropic/openai/responses）、流式事件→结构化 | 存量 |
 | `tests/test_skills.py` | Skill 加载与执行 | 存量 |
 | `tests/test_tool_search.py` | 工具搜索（延迟发现的 ToolSearchTool） | 存量 |
 | `tests/test_tui_render.py` | TUI 渲染、主题注册、模式标签 | 存量 |
-
-## 功能覆盖对照
-
-| 功能点 | 主要覆盖 |
-|--------|---------|
-| 基本循环 | `test_agent.py`（single-step、multi-step、autonomous） |
-| ≥3 个演示工具 | `test_demo_tools.py`（Calculator/Search/Weather/Todo） |
-| 工具注册机制 | `test_demo_tools.py`（schemas、register）、`test_tool_search.py` |
-| LLM 输出解析 | `test_serialization.py`（三协议流式事件→结构化） |
-| session 管理 | `test_memory.py`、Todo 的 `test_demo_tools.py::test_todo_sessions_are_isolated` |
-| context 管理（最大轮次限制） | `test_max_iterations.py`、`test_context.py`、`test_context_window.py` |
-| 异常处理 | `test_agent.py`（工具错误、除零、注入拒绝、取消、超时） |
 
 ## 模块 ↔ 测试 双向索引
 

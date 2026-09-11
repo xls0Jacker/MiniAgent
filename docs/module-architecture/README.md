@@ -28,7 +28,8 @@ http://localhost:8000/tool-execution/tool-execution.html
 …
 ```
 
-（同一文件夹里还有 `.json` 规格与 `*.visual-check.*` 证据边车，后者已 gitignore、只留在本地。）
+（同一文件夹里还有 `.json` 规格与 `*.visual-check.*` 证据边车，后者已 gitignore、只留在本地。
+`preview.png` 只在 `agent-loop` / `permissions` / `context-compaction` 三张图下提供，供根 README 内嵌预览。）
 
 ---
 
@@ -61,6 +62,7 @@ docs/module-architecture/
 ├── agent-loop/
 │   ├── agent-loop.html            # 图本身，自包含单文件
 │   ├── agent-loop.json            # 图的输入规格，改文案/加节点改这个
+│   ├── preview.png                # 缩略预览图（部分图有），供根 README 内嵌
 │   └── agent-loop.visual-check.*  # 浏览器证据（已 gitignore，只留本地）
 ├── prompt-assembly/
 ├── llm-client/

@@ -16,8 +16,8 @@
 内置工具分两类：
 - **编码工具**（`create_default_registry`）：`ReadFile` / `WriteFile` / `EditFile` /
   `Bash` / `Glob` / `Grep`；
-- **笔试题演示工具**（`register_demo_tools`）：`Calculator` / `Search` / `Weather` /
-  `Todo` —— 全部本地、确定性、离线可测，供演示「工具注册→自主调用」机制。
+- **演示工具**（`register_demo_tools`）：`Calculator` / `Search` / `Weather` /
+  `Todo` —— 全部本地、确定性、离线可测，用于演示「工具注册→自主调用」机制。
 
 ## 2. 核心数据结构
 

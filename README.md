@@ -1,254 +1,367 @@
-# AutoCode MiniAgent — 从零实现的最小可用 Agent
+**English** | [简体中文](README.zh-CN.md)
 
-一个跑在终端里的最小 Agent：你输入一句话，它（ReAct 循环地）判断「直接回答」还是
-「调用工具」，自己动手查文件、跑命令、算数、查知识库，直到给出答案。
+# AutoCode MiniAgent — A Terminal Coding Agent Runtime, Built From Scratch
 
-> 本项目与 AI 协作开发：核心 Agent Runtime 从零实现，不依赖 langgraph / openhands /
-> openclaw 等任何现成 agent 框架，直接对接真实 LLM API。仓库内的 AutoCode MiniAgent
-> 为一个命令行 Agent 的完整参考实现，聚焦于基础能力闭环。
+A coding agent that lives in your terminal. You type a sentence; it decides — through a ReAct
+loop — whether to answer directly or call a tool, then goes off to read files, edit code, run
+commands, and do arithmetic until it has an answer.
 
-特性一览：
+The core agent runtime is **written from scratch**: no langgraph, openhands, openclaw, or any
+other off-the-shelf agent framework, talking straight to real LLM APIs. `autocode/` is roughly
+**12.5k lines** of first-party implementation, backed by **6.1k lines** of tests.
 
-- **自研 Agent 主循环** —— ReAct 交替：思考 →（可选）调工具 → 看结果 → 再思考，直到回答
-- **三协议 LLM 客户端** —— anthropic / openai / openai-compat，统一流式事件接口
-- **工具注册机制** —— 名称 + 描述 + pydantic 参数 Schema，LLM 自主决策调用
-- **演示工具** —— Calculator / Search / Weather / Todo（全本地、确定性、离线可测）
-- **五层权限防御** —— 模式矩阵 / 危险命令黑名单 / 路径沙箱 / 规则引擎 / HITL 人工确认
-- **上下文压缩** —— 双层（tool-result 预算 + LLM 摘要），长对话可持续
-- **会话管理** —— 多窗口独立、JSONL 持久化、断点续聊
-- **自研 TUI**（Textual）—— 流式打字机、工具卡片、权限弹窗、会话切换
+What's inside:
+
+- **A hand-rolled agent loop** — ReAct alternation: think → (optionally) call a tool → read the
+  result → think again, until the model answers without reaching for another tool
+- **Three-protocol LLM client** — anthropic / openai / openai-compat behind one unified
+  streaming event interface
+- **Tool registry** — name + description + pydantic parameter schema; the model decides what to call
+- **Layered permissions (Layer 0–5)** — sequential fall-through, first verdict wins: plan-mode
+  exceptions · read-only command allowlist · dangerous command denylist · path sandbox · rule
+  engine · mode matrix · human-in-the-loop confirmation
+- **Two-layer context compaction** — a tool-result budget plus LLM summarization, so long
+  conversations stay viable
+- **Session management** — independent windows, JSONL persistence, resume where you left off
+- **Long-term memory** — automatic extraction plus recall keyed to the current question,
+  injected as a system-reminder
+- **Lifecycle hooks** — 15 event points, configurable as notification or interception hooks
+- **MCP integration** — tools from external servers bridge in as local tools, transparently to
+  every layer above
+- **A hand-rolled TUI** (Textual) — streaming typewriter output, tool cards, permission dialogs,
+  session switching
+
+---
+
+## Architecture Diagrams
+
+The repository ships **11 interactive architecture diagrams**: one runtime overview plus 10
+module drill-downs.
+
+Every diagram is a **self-contained single HTML file** — HTML, CSS, JS, and SVG all inline, zero
+external dependencies, opens straight in a browser. Click any node to open its "semantic
+passport" panel, which carries **real source evidence** as `path:line` references that jump
+straight to the matching line on GitHub. Across all diagrams there are **353 source references**,
+each one verified against commit `d1d0718`.
+
+![AutoCode MiniAgent runtime architecture overview](https://raw.githubusercontent.com/xls0Jacker/MiniAgent/main/docs/runtime-architecture/preview.png)
+
+**The overview diagram** — 12 nodes, 13 relationships. The spine runs
+`User → AutoCodeApp → Agent loop → LLMClient → LLM API`. `System Prompt assembly` and
+`Two-layer compaction` hang above it; `Layered permissions`, `ToolRegistry → MCP Servers`,
+`HookEngine`, and `Session / Memory` hang below.
+
+> The image above is a **downscaled preview**. README body width is around 880px, so a 2048px
+> source gets scaled down and the node labels stop being readable. For detail, open the
+> interactive version → [`runtime-architecture.html`](docs/runtime-architecture/runtime-architecture.html)
+> (see [how to open it](docs/runtime-architecture/README.md#怎么看)).
+>
+> **For English readers:** this is a Chinese-language project. The diagrams, the diagram READMEs
+> they link to, and most of the in-code comments and docstrings are written in Chinese
+> (`zh-CN`). Code identifiers and this README are in English; [`README.zh-CN.md`](README.zh-CN.md)
+> is the Chinese version of this same document.
+
+### The 10 module drill-down diagrams
+
+The overview answers "which modules does a single turn pass through". These answer "**how does
+this module work on its own**":
+
+| # | Diagram | Module | Core mechanism | Size |
+|---|---------|--------|----------------|------|
+| 1 | [agent-loop](docs/module-architecture/agent-loop/agent-loop.html) | Agent loop | 8 stages per turn + 3 guardrails + dual-path tool execution | 15 nodes · 16 edges · 28 refs |
+| 2 | [prompt-assembly](docs/module-architecture/prompt-assembly/prompt-assembly.html) | System prompt assembly | Two paths: `system` param vs. history messages | 12 nodes · 11 edges · 20 refs |
+| 3 | [llm-client](docs/module-architecture/llm-client/llm-client.html) | LLM client | Three-protocol dispatch + event normalization + cache breakpoints | 12 nodes · 11 edges · 28 refs |
+| 4 | [tool-execution](docs/module-architecture/tool-execution/tool-execution.html) | Tool registry & execution | Declarative metadata + concurrent/serial split + output gate | 13 nodes · 13 edges · 32 refs |
+| 5 | [permissions](docs/module-architecture/permissions/permissions.html) | Layered permissions | Layer 0–5 fall-through, first verdict returns | 12 nodes · 11 edges · 30 refs |
+| 6 | [context-compaction](docs/module-architecture/context-compaction/context-compaction.html) | Two-layer compaction | Layer 1 result budget + Layer 2 summary + circuit breaker | 15 nodes · 15 edges · 44 refs |
+| 7 | [hooks](docs/module-architecture/hooks/hooks.html) | Hook engine | Notification vs. interception hooks + condition expressions | 14 nodes · 13 edges · 38 refs |
+| 8 | [memory-session](docs/module-architecture/memory-session/memory-session.html) | Session & memory | JSONL persist/resume + memory extraction and recall | 18 nodes · 17 edges · 54 refs |
+| 9 | [mcp](docs/module-architecture/mcp/mcp.html) | MCP integration | Two transports + tool-wrapper registration + lazy reconnect | 14 nodes · 12 edges · 39 refs |
+| 10 | [tui](docs/module-architecture/tui/tui.html) | TUI interaction | A dispatch ladder over 12 AgentEvent types + three suspension points | 14 nodes · 13 edges · 40 refs |
+
+Three representative drill-downs (click through to the interactive version):
+
+| [![Agent loop](https://raw.githubusercontent.com/xls0Jacker/MiniAgent/main/docs/module-architecture/agent-loop/preview.png)](docs/module-architecture/agent-loop/agent-loop.html) | [![Layered permissions](https://raw.githubusercontent.com/xls0Jacker/MiniAgent/main/docs/module-architecture/permissions/preview.png)](docs/module-architecture/permissions/permissions.html) | [![Two-layer compaction](https://raw.githubusercontent.com/xls0Jacker/MiniAgent/main/docs/module-architecture/context-compaction/preview.png)](docs/module-architecture/context-compaction/context-compaction.html) |
+|---|----|----|
+| **Agent loop** — 8 stages per turn | **Permissions** — Layer 0–5 fall-through | **Compaction** — budget + summary |
+
+The diagrams are generated by [archify](https://github.com/tt-a1i/archify) from `.json` specs —
+edit the spec to change copy or add nodes. Regeneration and validation commands live in the
+[module diagrams README](docs/module-architecture/README.md) (Chinese).
 
 ---
 
 ## Quick Start
 
-环境：Python ≥ 3.11（实测 3.13），uv 或 pip。
+Requirements: Python ≥ 3.11 (tested on 3.13), with uv or pip.
 
 ```bash
-# 1. 安装依赖
-uv sync                 # 或 pip install -e .
+# 1. Install dependencies
+uv sync                 # or: pip install -e .
 
-# 2. 配置 LLM API
-#    复制示例配置，填入你的 api_key / base_url / model
+# 2. Configure the LLM API
+#    Copy the example config and fill in your api_key / base_url / model
 cp config.example.yaml .autocode/config.local.yaml
-#    编辑 .autocode/config.local.yaml（已 gitignore，不会误传密钥）
+#    Edit .autocode/config.local.yaml (already gitignored — your key won't be committed)
 
-# 3. 启动 TUI
+# 3. Launch the TUI
 uv run autocode
 
-# 4. 或非交互单发
-uv run autocode -p "3.5*128+2 等于多少？"
+# 4. Or send a single non-interactive prompt
+uv run autocode -p "What is 3.5*128+2?"
 ```
 
-### 配置示例（`.autocode/config.local.yaml`）
+### Configuration example (`.autocode/config.local.yaml`)
 
-任选一种协议，`protocol` 决定走哪套 API：
+Pick one protocol — `protocol` decides which API shape is used:
 
 ```yaml
 permission_mode: default     # default | acceptEdits | plan | bypassPermissions | dontAsk
-max_iterations: 50           # Agent 主循环最大轮次（护栏）
+max_iterations: 50           # agent loop iteration ceiling (guardrail)
 
 providers:
-  - name: anthropic            # 方式一：Anthropic 官方
+  - name: anthropic            # Option 1: Anthropic official
     protocol: anthropic
     base_url: https://api.anthropic.com
     model: claude-sonnet-4-5
-    api_key: ${YOUR_ANTHROPIC_KEY}  # ← 填你的 key（此文件不提交 git）
+    api_key: ${YOUR_ANTHROPIC_KEY}  # ← your key (this file is not committed)
 
-  # - name: my_openai_compat   # 方式二：任意 OpenAI 兼容服务（deepseek/本地等）
+  # - name: my_openai_compat   # Option 2: any OpenAI-compatible endpoint (deepseek / local, etc.)
   #   protocol: openai-compat
   #   base_url: https://api.deepseek.com/v1
   #   model: deepseek-chat
   #   api_key: sk-...
 ```
 
-> 多 provider 会都在启动菜单里出现，TUI 里选一个即可。`--mode` 命令行可覆盖权限模式。
+> Multiple providers all show up in the startup menu — pick one in the TUI. The `--mode` flag
+> overrides the permission mode from the command line.
 
 ---
 
-## TUI 操作速览
+## TUI Cheat Sheet
 
-| 操作 | 说明 |
-|------|------|
-| 直接输入回车 | 发送消息给 Agent |
-| `/` | 斜杠命令菜单（`/session`、`/compact`、`/mode` 等） |
-| `@文件路径` | 在输入里引用文件内容 |
-| Tab | 补全 |
-| ↑/↓ | 翻输入历史 |
-| 点击工具卡片 | 折叠 / 展开工具调用详情 |
-| Ctrl+O | 全部工具卡片折叠 / 展开 |
-| Tab / Shift+Tab | 循环切换权限模式 |
-| Esc / Ctrl+C | 取消当前流式回复 / 退出 |
+| Action | What it does |
+|--------|--------------|
+| Type and press Enter | Send a message to the agent |
+| `/` | Slash-command menu (`/session`, `/compact`, `/mode`, …) |
+| `@path/to/file` | Reference file contents in your input |
+| Tab | Completion |
+| ↑/↓ | Input history |
+| Click a tool card | Collapse / expand tool-call details |
+| Ctrl+O | Collapse / expand all tool cards |
+| Tab / Shift+Tab | Cycle permission modes |
+| Esc / Ctrl+C | Cancel the current streamed reply / quit |
 
-会话彼此独立（JSONL 落盘）。`/session` 可查看、切换、恢复历史会话。
-
----
-
-## 系统设计
-
-### 架构图
-
-```
-┌─────────────── TUI (Textual) ───────────────┐
-│  聊天区 · 工具卡片 · 权限弹窗 · 会话列表     │
-└───────────────┬──────────────────────────────┘
-                │ AgentEvent 事件流（yield）
-┌───────────────▼──────────────────────────────┐
-│              Agent 主循环（ReAct）           │
-│                                              │
-│  while True:                                 │
-│    if iteration > max_iterations: break      │  护栏
-│    auto_compact()          ← 上下文太长压缩    │  Layer 2
-│    build_system_prompt()   ← 身份/准则/环境    │
-│    stream()  ← LLM 客户端（三协议统一流式）     │
-│    tool_calls? 否 → 回答，结束                │
-│    是 → partition → 权限检查 → 执行 → 回填     │
-└──────┬──────────────────────┬───────────────┘
-       │                      │
-┌──────▼───────┐      ┌───────▼──────────────┐
-│ ToolRegistry │      │ PermissionChecker    │
-│  ReadFile    │      │  模式矩阵 / 黑名单    │
-│  Bash/Grep…  │      │  沙箱 / 规则引擎      │
-│  Calculator  │      │  HITL ask            │
-│  Search/Wea… │      └──────────────────────┘
-│  Todo(会话)  │
-└──────────────┘
-   ┌──────────────── 横切 ────────────────┐
-   │ Session(JSONL) · 压缩(boundary) ·     │
-   │ Memory(召回) · Hook · MCP(可选扩展)   │
-   └───────────────────────────────────────┘
-```
-
-### Agent 主循环
-
-一次输入 → 循环推进到最终回答：**接收输入 → 判断回复或调工具 →（调工具）→ 结果回填 →
-继续或返回**。终止判据是模型给出**不再调用工具**的最终回答；`max_iterations`（默认 50）
-与「连续未知工具」双护栏兜底，防止模型不收敛烧钱。
-
-### 工具系统
-
-每个工具 = `name` + `description` + pydantic `Params`。pydantic 模型一鱼三吃：
-`get_schema()` 喂给 LLM 决策、`execute()` 拿强类型参数、非法参数自动报错。
-并发安全的工具自动聚成同批并行执行；超长结果由上下文层截断/落盘。
-
-### 上下文压缩（双层）
-
-- **Layer 1**：每轮请求前，把过长的 tool result 截断/持久化/裁剪陈旧项；
-- **Layer 2**：接近窗口上限时，用 LLM 把**旧前缀摘要成一段、尾部原文保留**，
-  压缩结果以 compact-boundary 落盘，重启可续。
-
-### Memory 的召回时机与放置方式
-
-两类通道，一次「即时」、一次「常驻」：
-
-1. **每轮即时召回（按用户当前问题）**
-   - 时机：用户发出新消息时，后台并行发起一次**侧查询**（独立 LLM client + 独立
-     mini-conversation，8s 超时，失败静默跳过，不阻塞主流程）。
-   - 召回：`find_relevant_memories(query, …)` 对用户级/项目级记忆文件打分，挑最相关几条。
-   - 放置：`render_reminder(命中)` 拼成一条 `<system-reminder>`，
-     **注入位置 = 刚加入的用户消息之后、AI 回复之前**，随当轮请求进模型。
-
-2. **启动常驻注入（项目指令 + 长期记忆）**
-   - 时机：会话启动（Agent 构造后）一次性注入。
-   - 放置：`inject_long_term_memory(instructions, memories)` 把 AUTOCODE.md 指令 +
-     常驻记忆包成一个 system-reminder，**插在对话历史最前（index 0/1）**，
-     `ltm_injected` 标记保证只注入一次。
-
-一句话：**常驻记忆垫底（历史最前），即时召回贴当前问题（当轮消息后），二者都以
-system-reminder 形式进入上下文，而非散进正文**。
+Sessions are independent (each persisted as JSONL). `/session` lists, switches, and restores
+past sessions.
 
 ---
 
-## 演示工具与示例提问
+## System Design
 
-在 TUI 里直接问 Agent（它会自己决定调哪个工具）：
+Four layers: **TUI** (the Textual app) → **Agent** (loop + event stream) → **capabilities**
+(LLM client, tool registry, permissions, compaction, memory, hooks) → **protocols** (three LLM
+APIs plus MCP). Below, each module links to its drill-down diagram.
 
-| 工具 | 示例提问 | 说明 |
-|------|---------|------|
-| Calculator | 「3.5×128+2 等于多少？」 | AST 白名单安全求值，杜绝 eval 注入 |
-| Search | 「agent loop 是什么？给我查一下」 | 本地知识库 mock，确定性、离线可测 |
-| Weather | 「北京现在天气怎么样？」 | 城市名哈希生成确定性伪数据 |
-| Todo | 「记一条待办：写 README」「列出我的待办」 | 按会话（窗口）隔离存储 |
+### The agent loop ([diagram](docs/module-architecture/agent-loop/agent-loop.html))
 
-> Weather 走内置 Tool（本地 mock）而非 MCP——演示重点在「工具注册 → LLM 自主调用」
-> 机制本身，避免引入网络/服务依赖。MCP 接入能力保留在代码中（`autocode/mcp/`）
-> 作开放式扩展。
+One input drives the loop to a final answer: **take input → decide to answer or call tools →
+(if tools) → write results back → continue or return**. The termination condition is the model
+producing a final answer with **no further tool calls**; two guardrails back that up —
+`max_iterations` (default 50) and "3 consecutive unknown tools" — so a non-converging model
+can't quietly burn your budget.
+
+The stage order within a turn is fixed: iteration guardrail → `turn_start` hook → Layer 2
+compaction → `pre_send` hook → assemble the system prompt → inject reminders → Layer 1 budget →
+stream the request. Tool execution splits two ways: concurrency-safe tools batch into a
+**parallel** run; everything else goes through a **serial** path (which includes hook
+interception and the permission check).
+
+### Tool system ([diagram](docs/module-architecture/tool-execution/tool-execution.html))
+
+Each tool is `name` + `description` + a pydantic `Params` model. That one pydantic model does
+triple duty: `get_schema()` feeds the model's decision, `execute()` receives strongly-typed
+arguments, and invalid arguments fail automatically.
+
+Concurrency is decided by the tool's own declared `is_concurrency_safe` flag — **not** inferred
+from a read/write category. The concurrent batch takes a direct path; only the serial batch
+passes through hooks and the permission gate. Oversized results get truncated or persisted by
+the context layer.
+
+### System prompt assembly ([diagram](docs/module-architecture/prompt-assembly/prompt-assembly.html))
+
+The prompt the model receives **does not come from one place**: the `system` parameter carries
+only 8 fixed sections (identity, conduct, tool usage, tone, environment…), while everything that
+**changes turn to turn** — environment snapshot, long-term memory, plan-mode reminders — is
+injected into the **history messages**. Compaction wipes those injections, which is why the code
+re-injects them after every compaction.
+
+### Permissions ([diagram](docs/module-architecture/permissions/permissions.html))
+
+The single gate every tool call passes before the loop executes it: each `ToolCall` goes through
+`check()` and comes back allow / deny / ask. The decision is a **Layer 0–5 fall-through** — any
+layer that commits a verdict returns immediately, so **the layer order *is* the priority order**:
+
+| Layer | Verdict |
+|-------|---------|
+| 0 | Plan-mode exception (4 read-only tools, plus the plan file itself) |
+| 1 | Safe read-only commands auto-allowed (prefix allowlist, no pipes or redirects) |
+| 1b | Dangerous command denylist (8 regexes; a hit means deny) |
+| 2 | Path sandbox (file tools reaching outside the root → deny) |
+| 3 | Rule engine (user → project → local tiers; within a tier, the later rule wins) |
+| 4 | Permission-mode matrix fallback (6 modes × 3 tool categories) |
+| 5 | Nothing has committed yet → ask; suspend and hand it to the human (HITL) |
+
+The rule engine sits *before* the mode matrix: a hit in `permissions.yaml` returns before the
+fallback matrix is ever consulted.
+
+### Context compaction, two layers ([diagram](docs/module-architecture/context-compaction/context-compaction.html))
+
+- **Layer 1 (every turn, no LLM call)**: before each request, oversized tool results are
+  truncated, persisted, or snipped — three passes: a single result over the threshold gets
+  persisted, a total over the threshold persists largest-first, and results older than 10 turns
+  get snipped down.
+- **Layer 2 (threshold-triggered, calls the LLM)**: as the window fills, the **old prefix is
+  summarized into one block while the tail stays verbatim**. The result is persisted as a
+  compact-boundary, so a restart can resume. A circuit breaker stops retrying after repeated
+  failures.
+
+Both layers share one persistence function and one session directory — a single mechanism with
+two entry points.
+
+### Memory and sessions ([diagram](docs/module-architecture/memory-session/memory-session.html))
+
+Two channels, one immediate and one resident:
+
+1. **Per-turn recall (keyed to the user's current question)**
+   - *When*: on each user message, a background side-query fires in parallel (its own LLM client
+     and mini-conversation, 8s timeout, failures silently skipped — it never blocks the main flow).
+   - *What*: `find_relevant_memories(query, …)` scores the user-level and project-level memory
+     files and picks the most relevant entries.
+   - *Where*: `render_reminder(hits)` assembles a single `<system-reminder>`, injected
+     **right after the user message that just arrived and before the AI reply**, so it rides
+     along with that turn's request.
+
+2. **Startup resident injection (project instructions + long-term memory)**
+   - *When*: once, at session start (after the Agent is constructed).
+   - *Where*: `inject_long_term_memory(instructions, memories)` bundles the AUTOCODE.md
+     instructions and resident memories into one system-reminder and inserts it at the
+     **very front of the history (index 0/1)**; an `ltm_injected` flag guarantees it happens once.
+
+In one line: **resident memory sets the floor (front of history), immediate recall sticks to the
+current question (after this turn's message), and both enter the context as system-reminders
+rather than being scattered through the prose.**
+
+Persistence works the other way around from reading: one message is **split into several
+records** on the way out, and reassembled on resume. Because compaction boundaries inline their
+summaries, the original pre-compaction prefix never has to be replayed.
+
+### LLM client ([diagram](docs/module-architecture/llm-client/llm-client.html))
+
+The three protocols have completely different API shapes (Messages / Responses / Chat
+Completions), but all of them are translated into the **same 7 `StreamEvent` types** — the
+differences are entirely contained inside `client.py`, and everything above only knows that one
+event vocabulary. Cache breakpoints are placed in three spots: the system prompt, the tail of
+the tool list, and the last user message.
+
+### Hooks and MCP ([hooks diagram](docs/module-architecture/hooks/hooks.html) · [MCP diagram](docs/module-architecture/mcp/mcp.html))
+
+**Hooks** come in two kinds: notification hooks (they run and don't interfere with the main
+flow) and interception hooks (only `pre_tool_use`, which can reject a tool call). Conditions are
+matched with expressions (`==` `!=` `=~` `~=`; `&&` and `||` cannot be mixed).
+
+**MCP** wraps tools exposed by a remote server into local tools — the wrapper class hardcodes the
+category and concurrency flag, loads the parameter schema lazily, and registers into the same
+`ToolRegistry`, so the agent loop, the permission system, and tool search **all need zero changes**.
 
 ---
 
-## 测试
+## Demo Tools & Example Prompts
+
+Just ask the agent in the TUI — it picks the tool itself:
+
+| Tool | Example prompt | Notes |
+|------|----------------|-------|
+| Calculator | "What is 3.5×128+2?" | AST-allowlist evaluation, so no `eval` injection |
+| Search | "What is an agent loop? Look it up" | Local knowledge-base mock; deterministic, testable offline |
+| Weather | "What's the weather in Beijing?" | Deterministic pseudo-data from a hash of the city name |
+| Todo | "Note a todo: write the README" / "List my todos" | Stored per session (window) |
+
+Beyond these there is a set of **coding tools** (`ReadFile` / `WriteFile` / `EditFile` / `Bash` /
+`Glob` / `Grep`), registered by `create_default_registry`.
+
+> Weather goes through a built-in tool (a local mock) rather than MCP — the point being
+> demonstrated is the "tool registration → autonomous model invocation" mechanism itself, without
+> dragging in a network or service dependency. MCP support is kept in the codebase
+> (`autocode/mcp/`) as an open-ended extension channel.
+
+---
+
+## Tests
 
 ```bash
 uv run python -m pytest tests/ -q
 ```
 
-新增测试（离线、确定性、无需真实 LLM）：
+Every test is offline, deterministic, and needs no real LLM. Highlights:
 
-- `tests/test_demo_tools.py` —— 4 个演示工具行为 + Schema 完整性 + Todo 会话隔离
-- `tests/test_max_iterations.py` —— 主循环最大轮次护栏
+- `tests/test_demo_tools.py` — behavior of the 4 demo tools, schema completeness, Todo session isolation
+- `tests/test_max_iterations.py` — the agent loop's iteration ceiling
+- `tests/test_permissions.py` — permission layers, path sandbox, dangerous commands, rule engine, end-to-end verdicts
+- `tests/test_serialization.py` — normalizing streaming events across all three protocols
 
-详见 `docs/testing.md`。
-
----
-
-## 模块文档（docs/）
-
-9 篇中文文档，按模块解读源码：
-
-| # | 文档 | 对应模块 |
-|---|------|---------|
-| 01 | [初始 Coding Agent](docs/01-initial-coding-agent.md) | 入口 / 配置 / 最小闭环 |
-| 02 | [LLM 客户端与流式响应](docs/02-llm-client-streaming.md) | client.py / StreamCollector |
-| 03 | [工具注册与执行框架](docs/03-tool-registry.md) | tools/ · registry |
-| 04 | [Agent 主循环与事件流](docs/04-agent-loop-events.md) | agent.py ReAct loop |
-| 05 | [System Prompt 组装管线](docs/05-system-prompt.md) | prompts.py |
-| 06 | [权限系统](docs/06-permissions.md) | permissions/ 五层防御 |
-| 07 | [MCP 协议接入](docs/07-mcp.md) | mcp/ 开放式扩展 |
-| 08 | [上下文压缩与 Token 管理](docs/08-context-compaction.md) | context/ 双层压缩 |
-| 09 | [TUI 交互设计](docs/09-tui-design.md) | app.py Textual 界面 |
-
-另有 [测试说明](docs/testing.md)。
+See the [test documentation](docs/testing.md) (Chinese) for the full mapping.
 
 ---
 
-## 能力对照
+## Documentation
 
-| 能力 | 落地位置 |
-|-----------|---------|
-| 从零实现、不依赖 agent 框架 | 主循环 / 工具 / 权限 / 压缩 / session 全在 `autocode/` 自研 |
-| 基本循环 | `agent.py` Agent.run（ReAct 交替） |
-| ≥3 个演示工具 | Calculator / Search / Weather / Todo（`register_demo_tools`） |
-| 工具注册机制 | `tools/base.py` Tool + `get_schema()` + ToolRegistry |
-| LLM 输出解析 | `client.py` 三协议 → 统一 `StreamEvent` → `StreamCollector` |
-| session 管理（多窗口/续聊） | `memory/session.py` Session/SessionManager + TUI `/session` |
-| context 管理（轮次限制/压缩） | `max_iterations` + `context/manager.py` 双层压缩 |
-| 基本异常处理 | 工具错误回填、护栏 ErrorEvent、LLMError 分类、熔断 |
-| 工具调用 trace / 日志 | ToolUseEvent/ToolResultEvent + `.autocode/debug.log` |
-| 测试用例 | `tests/`（demo 工具 + max_iterations） |
-| 真实 LLM API | 三协议客户端，`config.local.yaml` 配 key |
+### Module write-ups (9)
+
+| # | Document | Module |
+|---|----------|--------|
+| 01 | [The initial coding agent](docs/01-initial-coding-agent.md) | Entry point / config / minimal loop |
+| 02 | [LLM client and streaming](docs/02-llm-client-streaming.md) | client.py / StreamCollector |
+| 03 | [Tool registry and execution framework](docs/03-tool-registry.md) | tools/ · registry |
+| 04 | [Agent loop and event stream](docs/04-agent-loop-events.md) | agent.py ReAct loop |
+| 05 | [System prompt assembly pipeline](docs/05-system-prompt.md) | prompts.py |
+| 06 | [Permission system](docs/06-permissions.md) | permissions/ layered defense |
+| 07 | [MCP integration](docs/07-mcp.md) | mcp/ open extension channel |
+| 08 | [Context compaction and token management](docs/08-context-compaction.md) | context/ two-layer compaction |
+| 09 | [TUI interaction design](docs/09-tui-design.md) | app.py Textual interface |
+
+Plus the [test documentation](docs/testing.md). All of these are in Chinese.
+
+### Architecture diagrams (11)
+
+- [Runtime overview](docs/runtime-architecture/runtime-architecture.html) — 12 nodes, which
+  modules one turn passes through ([how to view](docs/runtime-architecture/README.md#怎么看))
+- [10 module drill-downs](docs/module-architecture/README.md) — how each module works internally;
+  see [the table above](#the-10-module-drill-down-diagrams)
 
 ---
 
-## 目录结构
+## Project Layout
 
 ```
 MiniAgent/
-├── autocode/                 # 主包（自研 Runtime + TUI）
-│   ├── __main__.py           # CLI 入口（TUI / -p 非交互）
-│   ├── agent.py              # Agent 主循环 + 事件流
-│   ├── client.py             # 三协议 LLM 客户端
-│   ├── prompts.py            # System Prompt 组装管线
-│   ├── app.py                # Textual TUI 主应用
-│   ├── conversation.py       # 对话历史 + token 估算 + 注入
-│   ├── tools/                # Tool 基类 / registry / 编码工具 / 演示工具
-│   ├── permissions/          # 五层权限防御
-│   ├── context/              # 双层上下文压缩
+├── autocode/                 # Main package (first-party runtime + TUI)
+│   ├── __main__.py           # CLI entry point (TUI / -p non-interactive)
+│   ├── agent.py              # Agent loop + event stream
+│   ├── client.py             # Three-protocol LLM client
+│   ├── prompts.py            # System prompt assembly pipeline
+│   ├── app.py                # Textual TUI application
+│   ├── conversation.py       # Conversation history + token estimation + injection
+│   ├── tools/                # Tool base class / registry / coding tools / demo tools
+│   ├── permissions/          # Layered permission decisions
+│   ├── context/              # Two-layer context compaction
 │   ├── memory/               # session / auto_memory / recall
-│   ├── mcp/                  # MCP 协议（可选扩展）
+│   ├── hooks/                # Lifecycle hooks
+│   ├── mcp/                  # MCP protocol (open extension channel)
 │   └── ...
-├── tests/                    # 测试
-├── docs/                     # 模块解读文档 / 测试说明
-├── config.example.yaml       # 配置样例
+├── tests/                    # Tests
+├── docs/                     # Module write-ups / architecture diagrams / test docs
+├── config.example.yaml       # Example config
 ├── pyproject.toml
-└── .autocode/config.local.yaml   # 本地配置（gitignore，勿提交）
+└── .autocode/config.local.yaml   # Local config (gitignored — do not commit)
 ```
