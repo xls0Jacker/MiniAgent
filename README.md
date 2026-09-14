@@ -1,6 +1,6 @@
 **English** | [简体中文](README.zh-CN.md)
 
-# AutoCode MiniAgent — A Terminal Coding Agent Harness
+# AutoCode — A Terminal Coding Agent Harness
 
 A coding agent that lives in your terminal. You type a sentence; it decides — through a ReAct
 loop — whether to answer directly or call a tool, then goes off to read files, edit code, run
