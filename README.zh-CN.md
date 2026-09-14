@@ -1,6 +1,6 @@
 [English](README.md) | **简体中文**
 
-# AutoCode MiniAgent — 终端 Coding Agent Harness
+# AutoCode — 终端 Coding Agent Harness
 
 一个跑在终端里的 Coding Agent：你输入一句话，它（ReAct 循环地）判断「直接回答」还是
 「调用工具」，自己动手查文件、改代码、跑命令、算数，直到给出答案。
